@@ -4,12 +4,19 @@ server:
 spring:
   application:
     name: code-review-backend
+  # Redis 配置
   data:
     redis:
       host: localhost
       port: 6379
       database: 0
       timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
 
 # 硅基流动配置
 siliconflow:
@@ -18,10 +25,22 @@ siliconflow:
   model: "deepseek-ai/DeepSeek-V3.2"
   timeout: 60000
 
+# Docker 配置
+docker:
+  image: java-sandbox:latest
+  host: unix:///var/run/docker.sock
+
 # 评审配置
 review:
   stream:
-    key: "code-review-stream"
-    group: "llm-review-group"
+    key: "code:submit"        # 任务流
+    group: "code-processor"   # 消费者组
   result:
+    stream: "code:result"     # 结果流
     ttl: 86400
+
+# 日志配置
+logging:
+  level:
+    com.codereview: DEBUG
+    org.springframework: INFO
