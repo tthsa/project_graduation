@@ -3,7 +3,9 @@ version: '3.8'
 services:
   # ==================== 后端服务 ====================
   backend:
-    build: ./backend
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend/Dockerfile
     container_name: graduation-backend
     ports:
       - "8080:8080"
@@ -21,23 +23,26 @@ services:
     restart: unless-stopped
 
   # ==================== Java 执行器 ====================
-  java-executor:
-    build: ./java-executor
-    image: java-executor:latest
-    container_name: java-executor
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    networks:
-      - code-review-network
-    restart: unless-stopped
+
+#  java-executor:
+#    build:
+#      context: ../java-executor        # 假设代码在 graduation/java-executor/
+#      dockerfile: ../docker/java-executor/Dockerfile
+#    image: java-executor:latest
+#    container_name: java-executor
+#    security_opt:
+#      - no-new-privileges:true
+#    read_only: true
+#    tmpfs:
+#      - /tmp
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '0.5'
+#          memory: 512M
+#    networks:
+#      - code-review-network
+#    restart: unless-stopped
 
   # ==================== Redis ====================
   redis:
