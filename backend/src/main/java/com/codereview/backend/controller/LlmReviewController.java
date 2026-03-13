@@ -12,16 +12,15 @@ import org.springframework.web.bind.annotation.*;
 public class LlmReviewController {
 
     private final LlmReviewService llmReviewService;
+
     @PostMapping("/llm")
     public String testLlm(@RequestBody TestRequest request) {
-        return llmReviewService.reviewCode(request.getCode(), request.getLanguage());
+        return llmReviewService.reviewCode(request.getCode());
     }
 
 }
 
 @Data
 class TestRequest {
-    private String language;
     private String code;
-
 }

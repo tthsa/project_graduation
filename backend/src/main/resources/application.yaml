@@ -34,7 +34,7 @@ docker:
 review:
   stream:
     key: "code:submit"        # 任务流
-    group: "code-processor"   # 消费者组
+    consumer-group: "code-processor"   # 消费者组
   result:
     stream: "code:result"     # 结果流
     ttl: 86400

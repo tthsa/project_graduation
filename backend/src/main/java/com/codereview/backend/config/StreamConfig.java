@@ -30,7 +30,7 @@ public class StreamConfig {
     @PostConstruct
     public void initStream() {
         String streamKey = reviewProperties.getStream().getKey();
-        String groupName = reviewProperties.getStream().getGroup();
+        String groupName = reviewProperties.getStream().getConsumerGroup();
 
         try {
             // 检查 Stream 是否存在，不存在则创建

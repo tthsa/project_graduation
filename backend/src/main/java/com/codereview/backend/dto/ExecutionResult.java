@@ -1,9 +1,13 @@
 package com.codereview.backend.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 @Data
 @Builder
+@NoArgsConstructor   // ✅ 添加这个
+@AllArgsConstructor  // ✅ 添加这个
 
 public class ExecutionResult {
     /**任务 ID*/

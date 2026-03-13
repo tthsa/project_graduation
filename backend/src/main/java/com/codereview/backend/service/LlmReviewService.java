@@ -19,13 +19,20 @@ public class LlmReviewService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper;
 
+    public String reviewCode(String code) {
+        ExecutionResult result = new ExecutionResult();
+        result.setSuccess(true);
+        return reviewCode(code, result);
+    }
+
     /**
-     * 使用 LLM 评审代码
+     * 使用 LLM 评审 Java 代码（完整版）
      *
-     * @param code 源代码
+     * @param code Java 源代码
      * @param executionResult 执行结果
      * @return 评审意见
      */
+
     public String reviewCode(String code, ExecutionResult executionResult) {
         try {
             // 1. 构建提示词
