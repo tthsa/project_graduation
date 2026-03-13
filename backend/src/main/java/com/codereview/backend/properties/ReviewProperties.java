@@ -17,11 +17,11 @@ public class ReviewProperties {
 
     @Data
     public static class StreamConfig {
-        /**任务流 Key*/
-        private String key = "code:submit";
+        /**Stream 键名*/
+        private String key = "code:review:stream";
 
         /**消费者组名称*/
-        private String group = "code-processor";
+        private String consumerGroup = "review-group";
     }
 
     @Data

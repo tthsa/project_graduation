@@ -1,120 +1,122 @@
 package com.codereview.backend.service;
 
+import com.codereview.backend.dto.ExecutionResult;
 import com.codereview.backend.properties.SiliconFlowProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
+import org.springframework.web.client.RestTemplate;
+import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
 
 public class LlmReviewService {
-    private final SiliconFlowProperties properties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SiliconFlowProperties siliconFlowProperties;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper;
 
-    private final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build();
-
-    /** 代码评审主入口*/
-    public String reviewCode(String code, String language) {
-        log.info("开始评审代码，语言: {}, 代码长度: {}", language, code.length());
-        String prompt = buildReviewPrompt(code, language);
-        return chat(prompt);
-    }
-
-    /**多轮对话：追问功能*/
-    public String askQuestion(String submissionId, String question, String previousResult) {
-        log.info("收到追问，submissionId: {}", submissionId);
-        String prompt = buildFollowUpPrompt(submissionId, question, previousResult);
-        return chat(prompt);
-    }
-
-    /**核心 Chat 方法*/
-    private String chat(String userMessage) {
+    /**
+     * 使用 LLM 评审代码
+     *
+     * @param code 源代码
+     * @param executionResult 执行结果
+     * @return 评审意见
+     */
+    public String reviewCode(String code, ExecutionResult executionResult) {
         try {
-            List<Message> messages = new ArrayList<>();
-            messages.add(new Message("system", getSystemPrompt()));
-            messages.add(new Message("user", userMessage));
-            ChatRequest chatRequest = new ChatRequest(
-                    properties.getModel(),
-                    messages,
-                    0.7
-            );
-            String requestBody = objectMapper.writeValueAsString(chatRequest);
-            log.info("请求模型: {}", properties.getModel());
-            Request request = new Request.Builder()
-                    .url(properties.getBaseUrl() + "/chat/completions")
-                    .addHeader("Authorization", "Bearer " + properties.getApiKey())
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
-                    .build();
-            try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    String errorBody = response.body() != null ? response.body().string() : "无错误详情";
-                    log.error("API 调用失败: {} - {}", response.code(), errorBody);
-                    throw new RuntimeException("LLM 调用失败: " + response.code());
-                }
-                String responseBody = response.body().string();
-                JsonNode jsonNode = objectMapper.readTree(responseBody);
-                String content = jsonNode.path("choices").get(0).path("message").path("content").asText();
-                log.info("调用成功，返回内容长度: {}", content.length());
-                return content;
-            }
+            // 1. 构建提示词
+            String prompt = buildPrompt(code, executionResult);
+
+            // 2. 调用 SiliconFlow API
+            String review = callSiliconFlowAPI(prompt);
+
+            log.info("✅ LLM 评审完成: taskId={}", executionResult.getTaskId());
+            return review;
+
         } catch (Exception e) {
-            log.error("调用异常", e);
-            throw new RuntimeException("LLM 服务异常: " + e.getMessage(), e);
+            log.error("❌ LLM 评审失败: {}", e.getMessage());
+            return "评审失败: " + e.getMessage();
         }
     }
 
-    private String getSystemPrompt() {
-        return "你是一位资深的代码评审专家，拥有10年以上的软件开发经验。\n" +
-                "你的任务是帮助学生改进代码质量，提供专业、友好、易懂的建议。\n\n" +
-                "评审原则：\n" +
-                "1. 先肯定代码的优点，再指出问题\n" +
-                "2. 问题按严重程度排序：错误 > 警告 > 建议\n" +
-                "3. 每个问题都要给出具体的修改建议和示例代码\n" +
-                "4. 最后给出一个 0-100 的综合评分\n\n" +
-                "输出格式：\n" +
-                "### 代码优点\n- ...\n\n" +
-                "### 发现的问题\n#### 错误（必须修复）\n...\n\n" +
-                "### 综合评分\n**XX/100**\n\n" +
-                "### 总结\n一句话总结...";
-    }
-    private String buildReviewPrompt(String code, String language) {
-        return "请评审以下 " + language + " 代码：\n\n" +
-                "```" + language + "\n" + code + "\n```\n\n" +
-                "请按照系统提示中的格式进行评审。";
-    }
-    private String buildFollowUpPrompt(String submissionId, String question, String previousResult) {
-        return "之前的评审结果：\n" + previousResult + "\n\n" +
-                "学生的追问：\n" + question + "\n\n" +
-                "请针对学生的问题进行详细解答。";
+    /**
+     * 构建提示词
+     */
+    private String buildPrompt(String code, ExecutionResult result) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是一位专业的 Java 代码评审专家。请评审以下代码：\n\n");
+        prompt.append("```java\n");
+        prompt.append(code);
+        prompt.append("\n```\n\n");
+
+        if (result.getSuccess()) {
+            prompt.append("执行结果：成功\n");
+            if (result.getOutput() != null && !result.getOutput().isEmpty()) {
+                prompt.append("输出：\n```\n");
+                prompt.append(result.getOutput());
+                prompt.append("\n```\n\n");
+            }
+        } else {
+            prompt.append("执行结果：失败\n");
+            if (result.getError() != null) {
+                prompt.append("错误信息：\n```\n");
+                prompt.append(result.getError());
+                prompt.append("\n```\n\n");
+            }
+        }
+
+        prompt.append("请从以下几个方面进行评审：\n");
+        prompt.append("1. 代码质量和可读性\n");
+        prompt.append("2. 潜在的 Bug 或问题\n");
+        prompt.append("3. 性能优化建议\n");
+        prompt.append("4. 最佳实践建议\n");
+        prompt.append("5. 安全性问题\n\n");
+        prompt.append("请用中文回答，简洁明了。");
+
+        return prompt.toString();
     }
 
-    @Data
-    @AllArgsConstructor
-    private static class ChatRequest {
-        private String model;
-        private List<Message> messages;
-        private double temperature;
-    }
-    @Data
-    @AllArgsConstructor
-    private static class Message {
-        private String role;
-        private String content;
+    /**
+     * 调用 SiliconFlow API
+     */
+    private String callSiliconFlowAPI(String prompt) throws Exception {
+        // 构建请求体
+        String requestBody = String.format(
+                "{\"model\":\"%s\",\"messages\":[{\"role\":\"user\",\"content\":%s}],\"max_tokens\":2000}",
+                siliconFlowProperties.getModel(),
+                objectMapper.writeValueAsString(prompt)
+        );
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(siliconFlowProperties.getApiKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+        // 发送请求
+        String url = siliconFlowProperties.getBaseUrl() + "/v1/chat/completions";
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                String.class
+        );
+
+        // 解析响应
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode choices = root.path("choices");
+            if (choices.isArray() && choices.size() > 0) {
+                return choices.get(0).path("message").path("content").asText();
+            }
+        }
+
+        throw new RuntimeException("API 调用失败: " + response.getStatusCode());
     }
 
 }
