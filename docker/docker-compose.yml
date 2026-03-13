@@ -1,50 +1,85 @@
+version: '3.8'
+
 services:
-  # ==================== Redis消息队列 ====================
+  # ==================== 后端服务 ====================
+  backend:
+    build: ./backend
+    container_name: graduation-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  # ==================== Java 执行器 ====================
+  java-executor:
+    build: ./java-executor
+    image: java-executor:latest
+    container_name: java-executor
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  # ==================== Redis ====================
   redis:
     image: redis:7-alpine
-    container_name: code-review-redis
+    container_name: graduation-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - code-review-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-    networks:
-      - code-review-network
 
-  # ==================== Redis可视化工具 ====================
+  # ==================== RedisInsight ====================
   redis-insight:
     image: redis/redisinsight:latest
-    container_name: code-review-redis-insight
+    container_name: graduation-redisinsight
     ports:
       - "5540:5540"
     volumes:
       - redisinsight-data:/data
     depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
+      - redis
     networks:
       - code-review-network
+    restart: unless-stopped
 
-  # ==================== Java执行器基础镜像 ====================
-  java-executor-base:
-    build:
-      context: ./docker/executor
-      dockerfile: java-executor/Dockerfile
-    image: java-executor:latest
-    profiles:
-      - build
+# ==================== 数据卷 ====================
+volumes:
+  redis-data:
+    driver: local
+  redisinsight-data:
+    driver: local
 
+# ==================== 网络 ====================
 networks:
   code-review-network:
     driver: bridge
-
-volumes:
-  redis-data:
-  redisinsight-data:
