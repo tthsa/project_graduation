@@ -5,7 +5,7 @@
 
     <parent>
         <groupId>com.codereview</groupId>
-        <artifactId>graduation</artifactId>  <!-- 继承你的父项目 -->
+        <artifactId>graduation</artifactId>  <!-- 继承父项目 -->
         <version>1.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -72,6 +72,20 @@
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-core</artifactId>
             <version>3.3.4</version>
+        </dependency>
+
+        <!--  HTTP Client 5 传输层 -->
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-transport-httpclient5</artifactId>
+            <version>3.3.4</version>
+        </dependency>
+
+        <!--  Apache HttpClient 5 -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>5.3</version>
         </dependency>
 
         <!-- 工具类 -->

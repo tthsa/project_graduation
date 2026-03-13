@@ -1,4 +1,4 @@
-package com.codereview.backend.config;
+package com.codereview.backend.properties;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 public class SiliconFlowProperties {
     private String apiKey;
-    private String baseUrl = "https://api.siliconflow.cn/v1";
-    private String model = "deepseek-ai/DeepSeek-V3";
+    private String baseUrl;
+    private String model;
     private Integer timeout = 60000;
 }

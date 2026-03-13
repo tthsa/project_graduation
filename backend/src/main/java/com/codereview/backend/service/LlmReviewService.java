@@ -1,6 +1,6 @@
 package com.codereview.backend.service;
 
-import com.codereview.backend.config.SiliconFlowProperties;
+import com.codereview.backend.properties.SiliconFlowProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
