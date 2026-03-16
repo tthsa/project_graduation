@@ -1,23 +1,18 @@
 package com.codereview.backend.config;
 
 import com.codereview.backend.properties.ReviewProperties;
+import io.lettuce.core.RedisBusyException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.stream.Consumer;
-import org.springframework.data.redis.connection.stream.ObjectRecord;
-import org.springframework.data.redis.connection.stream.ReadOffset;
-import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.stream.StreamMessageListenerContainer;
-import org.springframework.data.redis.stream.Subscription;
+import org.springframework.data.redis.RedisSystemException;
 import jakarta.annotation.PostConstruct;
-import java.time.Duration;
+
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-
 public class StreamConfig {
 
     private final RedisConnectionFactory connectionFactory;
@@ -44,8 +39,9 @@ public class StreamConfig {
             try {
                 redisTemplate.opsForStream().createGroup(streamKey, groupName);
                 log.info("✅ 创建消费者组: {}", groupName);
-            } catch (Exception e) {
-                if (e.getMessage().contains("BUSYGROUP")) {
+            } catch (RedisSystemException e) {
+                // 检查是否是 BUSYGROUP 异常（消费者组已存在）
+                if (isBusyGroupException(e)) {
                     log.info("ℹ️ 消费者组已存在: {}", groupName);
                 } else {
                     throw e;
@@ -59,9 +55,36 @@ public class StreamConfig {
                 log.info("✅ 创建结果流: {}", resultStreamKey);
             }
 
+            log.info("🚀 Stream 初始化完成");
+
         } catch (Exception e) {
-            log.error("❌ 初始化 Stream 失败: {}", e.getMessage());
+            log.error("❌ 初始化 Stream 失败: {}", e.getMessage(), e);
             throw new RuntimeException("初始化 Stream 失败", e);
         }
+    }
+
+    /**
+     * 检查是否是 BUSYGROUP 异常
+     */
+    private boolean isBusyGroupException(Exception e) {
+        // 检查异常消息
+        String message = e.getMessage();
+        if (message != null && message.contains("BUSYGROUP")) {
+            return true;
+        }
+        
+        // 检查异常链中是否有 RedisBusyException
+        Throwable cause = e.getCause();
+        while (cause != null) {
+            if (cause instanceof RedisBusyException) {
+                return true;
+            }
+            if (cause.getMessage() != null && cause.getMessage().contains("BUSYGROUP")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        
+        return false;
     }
 }
