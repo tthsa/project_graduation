@@ -5,84 +5,89 @@ import com.codereview.backend.dto.ExecutionResult;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.api.model.*;
-import lombok.RequiredArgsConstructor;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @Service
-@RequiredArgsConstructor
-
 public class DockerSandboxService {
-
-    private final DockerClient dockerClient;
 
     @Value("${docker.image:java-sandbox:latest}")
     private String dockerImage;
 
+    @Value("${docker.timeout:30}")
+    private int timeoutSeconds;
+
+    @Value("${docker.memory:64}")
+    private long memoryLimitMB;
+
+    @Autowired
+    private DockerClient dockerClient;
+
     /**
-     * 在 Docker 容器中执行代码
-     *
-     * @param task 代码任务
-     * @return 执行结果
+     * 供 TaskProcessor 调用的统一执行入口
      */
     public ExecutionResult executeInSandbox(CodeTask task) {
-        String containerId = null;
+        ExecutionResult result = executeJavaCode(
+                task.getCode(),
+                task.getClassName(),
+                ""
+        );
+        // 设置 taskId 和 timestamp
+        result.setTaskId(task.getTaskId());
+        if (result.getTimestamp() == null) {
+            result.setTimestamp(System.currentTimeMillis());
+        }
+        return result;
+
+    }
+
+    /**
+     * 执行 Java 代码
+     */
+    public ExecutionResult executeJavaCode(String javaCode, String className, String input) {
         long startTime = System.currentTimeMillis();
+        String containerId = null;
 
         try {
             // 1. 创建容器
-            containerId = createContainer(task);
-            log.info("🐳 创建容器: containerId={}", containerId);
+            containerId = createContainer();
+            log.info("创建容器成功: {}", containerId);
 
-            // 2. 启动容器
-            dockerClient.startContainerCmd(containerId).exec();
-            log.info("▶️ 启动容器: containerId={}", containerId);
+            // 2. 使用 Base64 安全地写入代码
+            copyCodeToContainer(containerId, javaCode, className);
 
-            // 3. 复制代码到容器
-            copyCodeToContainer(containerId, task);
-            log.info("📝 复制代码到容器: className={}", task.getClassName());
-
-            // 4. 编译代码
-            ExecutionResult compileResult = compileCode(containerId, task);
+            // 3. 编译代码
+            ExecutionResult compileResult = compileCode(containerId, className);
             if (!compileResult.getSuccess()) {
                 return compileResult;
             }
 
-            // 5. 运行代码
-            ExecutionResult runResult = runCode(containerId, task);
-
-            // 6. 计算执行时间
-            long executionTime = System.currentTimeMillis() - startTime;
-            runResult.setExecutionTime(executionTime);
-
+            // 4. 执行代码
+            ExecutionResult runResult = runCode(containerId, className, input);
+            runResult.setExecutionTime(System.currentTimeMillis() - startTime);
             return runResult;
 
         } catch (Exception e) {
-            log.error("❌ 执行失败: {}", e.getMessage(), e);
+            log.error("执行代码失败", e);
             return ExecutionResult.builder()
-                    .taskId(task.getTaskId())
                     .success(false)
                     .error("执行失败: " + e.getMessage())
-                    .timestamp(System.currentTimeMillis())
+                    .executionTime(System.currentTimeMillis() - startTime)
                     .build();
         } finally {
-            // 7. 清理容器
+            // 5. 清理容器
             if (containerId != null) {
-                try {
-                    dockerClient.removeContainerCmd(containerId)
-                            .withForce(true)
-                            .exec();
-                    log.info("🗑️ 清理容器: containerId={}", containerId);
-                } catch (Exception e) {
-                    log.warn("⚠️ 清理容器失败: {}", e.getMessage());
-                }
+                removeContainer(containerId);
             }
         }
     }
@@ -90,193 +95,126 @@ public class DockerSandboxService {
     /**
      * 创建容器
      */
-    private String createContainer(CodeTask task) {
-        // 资源限制配置
+    private String createContainer() {
         HostConfig hostConfig = HostConfig.newHostConfig()
-                .withMemory((long) task.getMemoryLimit() * 1024 * 1024) // MB -> Bytes
-                .withCpuCount(1L)
-                .withNetworkMode("none") // 禁用网络
-                .withAutoRemove(false);
+                .withMemory(memoryLimitMB * 1024 * 1024)
+                .withCpuCount(1L);
 
-        // 创建容器
         CreateContainerResponse response = dockerClient.createContainerCmd(dockerImage)
                 .withHostConfig(hostConfig)
                 .withTty(true)
-                .withStdinOpen(true)
-                .withUser("sandbox") // 使用非 root 用户
+                .withAttachStdin(true)
+                .withAttachStdout(true)
+                .withAttachStderr(true)
                 .exec();
 
-        return response.getId();
+        String containerId = response.getId();
+        dockerClient.startContainerCmd(containerId).exec();
+        return containerId;
     }
 
     /**
-     * 复制代码到容器
+     * 使用 Base64 安全地复制代码到容器
      */
-    private void copyCodeToContainer(String containerId, CodeTask task) throws Exception {
-        // 创建 Java 文件内容
-        String javaCode = task.getCode();
+    private void copyCodeToContainer(String containerId, String javaCode, String className) {
+        try {
+            String encodedCode = Base64.getEncoder().encodeToString(
+                    javaCode.getBytes(StandardCharsets.UTF_8)
+            );
 
-        // 使用 exec 命令创建文件
-        String createFileCmd = String.format(
-                "mkdir -p /sandbox && echo '%s' > /sandbox/%s.java",
-                escapeShell(javaCode),
-                task.getClassName()
-        );
+            String cmd = String.format(
+                    "mkdir -p /sandbox && echo '%s' | base64 -d > /sandbox/%s.java",
+                    encodedCode, className
+            );
 
-        executeCommand(containerId, new String[]{"sh", "-c", createFileCmd});
+            executeCommand(containerId, cmd);
+            log.info("代码已写入容器: /sandbox/{}.java", className);
+
+        } catch (Exception e) {
+            log.error("复制代码到容器失败", e);
+            throw new RuntimeException("复制代码失败: " + e.getMessage());
+        }
     }
 
     /**
      * 编译代码
      */
-    private ExecutionResult compileCode(String containerId, CodeTask task) throws Exception {
-        String compileCmd = String.format(
-                "cd /sandbox && javac %s.java 2>&1",
-                task.getClassName()
-        );
+    private ExecutionResult compileCode(String containerId, String className) {
+        try {
+            String compileCmd = String.format("javac /sandbox/%s.java", className);
+            String output = executeCommand(containerId, compileCmd);
 
-        CommandResult result = executeCommand(containerId, new String[]{"sh", "-c", compileCmd});
-
-        if (result.getExitCode() != 0) {
             return ExecutionResult.builder()
-                    .taskId(task.getTaskId())
+                    .success(true)
+                    .output(output)
+                    .build();
+
+        } catch (Exception e) {
+            return ExecutionResult.builder()
                     .success(false)
-                    .error("编译错误:\n" + result.getOutput())
-                    .exitCode(result.getExitCode())
-                    .timestamp(System.currentTimeMillis())
+                    .error("编译错误:\n" + e.getMessage())
                     .build();
         }
-
-        return ExecutionResult.builder()
-                .taskId(task.getTaskId())
-                .success(true)
-                .message("编译成功")
-                .timestamp(System.currentTimeMillis())
-                .build();
     }
 
     /**
-     * 运行代码
+     * 执行代码
      */
-    private ExecutionResult runCode(String containerId, CodeTask task) throws Exception {
-        String runCmd = String.format(
-                "cd /sandbox && timeout %d java -Xmx%dM %s 2>&1",
-                task.getTimeLimit(),
-                task.getMemoryLimit(),
-                task.getClassName()
-        );
+    private ExecutionResult runCode(String containerId, String className, String input) {
+        try {
+            String runCmd = String.format("cd /sandbox && java %s", className);
+            String output = executeCommand(containerId, runCmd);
 
-        CommandResult result = executeCommand(containerId, new String[]{"sh", "-c", runCmd});
+            return ExecutionResult.builder()
+                    .success(true)
+                    .output(output.trim())
+                    .build();
 
-        // 检查是否超时
-        boolean success = result.getExitCode() == 0;
-        String error = null;
-
-        if (result.getExitCode() == 124) {
-            success = false;
-            error = "执行超时（超过 " + task.getTimeLimit() + " 秒）";
-        } else if (result.getExitCode() != 0) {
-            error = result.getOutput();
+        } catch (Exception e) {
+            return ExecutionResult.builder()
+                    .success(false)
+                    .error("运行错误:\n" + e.getMessage())
+                    .build();
         }
-
-        return ExecutionResult.builder()
-                .taskId(task.getTaskId())
-                .success(success)
-                .output(success ? result.getOutput() : null)
-                .error(error)
-                .exitCode(result.getExitCode())
-                .timestamp(System.currentTimeMillis())
-                .build();
     }
 
     /**
      * 在容器中执行命令
      */
-    private CommandResult executeCommand(String containerId, String[] cmd) throws Exception {
-        // 创建 exec 命令
+    private String executeCommand(String containerId, String command) throws Exception {
         ExecCreateCmdResponse execCreate = dockerClient.execCreateCmd(containerId)
-                .withCmd(cmd)
+                .withCmd("sh", "-c", command)
                 .withAttachStdout(true)
                 .withAttachStderr(true)
                 .exec();
 
-        // 执行命令并获取输出
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ByteArrayOutputStream errorStream = new ByteArrayOutputStream();
 
         dockerClient.execStartCmd(execCreate.getId())
                 .exec(new ExecStartResultCallback(outputStream, errorStream))
-                .awaitCompletion(30, TimeUnit.SECONDS);
-
-        // 获取退出码
-        Long exitCode = dockerClient.inspectExecCmd(execCreate.getId())
-                .exec()
-                .getExitCodeLong();
+                .awaitCompletion(timeoutSeconds, TimeUnit.SECONDS);
 
         String output = outputStream.toString(StandardCharsets.UTF_8);
         String error = errorStream.toString(StandardCharsets.UTF_8);
 
-        return new CommandResult(exitCode != null ? exitCode.intValue() : -1, output + error);
+        if (!error.isEmpty()) {
+            throw new RuntimeException(error);
+        }
+
+        return output;
     }
 
     /**
-     * 转义 Shell 特殊字符
+     * 清理容器
      */
-    private String escapeShell(String str) {
-        return str.replace("'", "'\\''");
-    }
-
-    /**
-     * 命令执行结果
-     */
-    private static class CommandResult {
-        private final int exitCode;
-        private final String output;
-
-        public CommandResult(int exitCode, String output) {
-            this.exitCode = exitCode;
-            this.output = output;
-        }
-
-        public int getExitCode() {
-            return exitCode;
-        }
-
-        public String getOutput() {
-            return output;
-        }
-    }
-
-    /**
-     * Exec 输出回调
-     */
-    private static class ExecStartResultCallback
-            extends com.github.dockerjava.api.async.ResultCallback.Adapter<Frame>
-            implements Closeable {
-
-        private final ByteArrayOutputStream outputStream;
-        private final ByteArrayOutputStream errorStream;
-
-        public ExecStartResultCallback(ByteArrayOutputStream outputStream, ByteArrayOutputStream errorStream) {
-            this.outputStream = outputStream;
-            this.errorStream = errorStream;
-        }
-
-        @Override
-        public void onNext(Frame frame) {
-            if (frame != null && frame.getPayload() != null) {
-                byte[] payload = frame.getPayload();
-                if (frame.getStreamType() == StreamType.STDOUT) {
-                    outputStream.write(payload, 0, payload.length);
-                } else if (frame.getStreamType() == StreamType.STDERR) {
-                    errorStream.write(payload, 0, payload.length);
-                }
-            }
-        }
-
-        @Override
-        public void close() {
-            // 清理资源
+    private void removeContainer(String containerId) {
+        try {
+            dockerClient.stopContainerCmd(containerId).withTimeout(0).exec();
+            dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+            log.info("容器已清理: {}", containerId);
+        } catch (Exception e) {
+            log.warn("清理容器失败: {}", e.getMessage());
         }
     }
 }

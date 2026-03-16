@@ -24,25 +24,24 @@ services:
 
   # ==================== Java 执行器 ====================
 
-#  java-executor:
-#    build:
-#      context: ../java-executor        # 假设代码在 graduation/java-executor/
-#      dockerfile: ../docker/java-executor/Dockerfile
-#    image: java-executor:latest
-#    container_name: java-executor
-#    security_opt:
-#      - no-new-privileges:true
-#    read_only: true
-#    tmpfs:
-#      - /tmp
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '0.5'
-#          memory: 512M
-#    networks:
-#      - code-review-network
-#    restart: unless-stopped
+  java-sandbox:
+    build:
+      context: .
+      dockerfile: ./java-executor/Dockerfile
+    container_name: java-sandbox
+    image: java-sandbox:latest
+    restart: unless-stopped
+    networks:
+      - code-review-network
+    # 资源限制（重要！安全措施）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # ==================== Redis ====================
   redis:

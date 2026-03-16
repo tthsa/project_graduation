@@ -27,8 +27,8 @@ siliconflow:
 # Docker 执行器配置
 docker:
   executor:
-    image: java-executor:latest
-    container-name: java-executor
+    image: java-sandbox:latest
+    container-name: java-sandbox
     memory-limit: 512m
     cpu-limit: 0.5
 

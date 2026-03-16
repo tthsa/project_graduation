@@ -39,7 +39,8 @@ public class ResultService {
             resultMap.put("exitCode", result.getExitCode() != null ? result.getExitCode().toString() : "-1");
             resultMap.put("executionTime", result.getExecutionTime() != null ? result.getExecutionTime().toString() : "0");
             resultMap.put("llmReview", result.getLlmReview() != null ? result.getLlmReview() : "");
-            resultMap.put("timestamp", result.getTimestamp().toString());
+            resultMap.put("timestamp", result.getTimestamp() != null ?
+                    result.getTimestamp().toString() : String.valueOf(System.currentTimeMillis()));
 
             redisTemplate.opsForHash().putAll(resultKey, resultMap);
 
