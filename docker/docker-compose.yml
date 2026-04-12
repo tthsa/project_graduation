@@ -1,29 +1,104 @@
 version: '3.8'
 
 services:
+  # ==================== PostgreSQL ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: java-eval-postgres
+    environment:
+      POSTGRES_DB: java_evaluation
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: patient210037
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../init-db:/docker-entrypoint-initdb.d
+    networks:
+      - java-eval-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d java_evaluation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== RabbitMQ ====================
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: java-eval-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: patient210037
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - java-eval-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: java-eval-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - java-eval-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
   # ==================== 后端服务 ====================
   backend:
     build:
       context: ..
       dockerfile: ./docker/backend/Dockerfile
-    container_name: graduation-backend
+    container_name: java-eval-backend
     ports:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATASOURCE_HOST=postgres
+      - SPRING_DATASOURCE_PORT=5432
+      - SPRING_DATASOURCE_DB=java_evaluation
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=patient210037
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_USERNAME=admin
+      - SPRING_RABBITMQ_PASSWORD=admin123
+      - SPRING_REDIS_HOST=redis
+      - SILICONFLOW_API_KEY=sk-okpdxfwbttwgrmjbjjycpljgsycroeihfreuwaarqldsodfs
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - upload_data:/app/uploads
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - code-review-network
+      - java-eval-network
     restart: unless-stopped
 
-  # ==================== Java 执行器 ====================
-
+  # ==================== Java 沙箱 ====================
   java-sandbox:
     build:
       context: .
@@ -32,8 +107,7 @@ services:
     image: java-sandbox:latest
     restart: unless-stopped
     networks:
-      - code-review-network
-    # 资源限制（重要！安全措施）
+      - java-eval-network
     deploy:
       resources:
         limits:
@@ -43,47 +117,18 @@ services:
           cpus: '0.25'
           memory: 128M
 
-  # ==================== Redis ====================
-  redis:
-    image: redis:7-alpine
-    container_name: graduation-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: redis-server /usr/local/etc/redis/redis.conf
-    networks:
-      - code-review-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-  # ==================== RedisInsight ====================
-  redis-insight:
-    image: redis/redisinsight:latest
-    container_name: graduation-redisinsight
-    ports:
-      - "5540:5540"
-    volumes:
-      - redisinsight-data:/data
-    depends_on:
-      - redis
-    networks:
-      - code-review-network
-    restart: unless-stopped
-
 # ==================== 数据卷 ====================
 volumes:
-  redis-data:
+  postgres_data:
     driver: local
-  redisinsight-data:
+  rabbitmq_data:
+    driver: local
+  redis_data:
+    driver: local
+  upload_data:
     driver: local
 
 # ==================== 网络 ====================
 networks:
-  code-review-network:
+  java-eval-network:
     driver: bridge

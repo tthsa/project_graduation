@@ -3,11 +3,29 @@ server:
 
 spring:
   application:
-    name: code-review-backend
+    name: java-evaluation-system
+
+  # PostgreSQL 配置
+  datasource:
+    url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:localhost}:${SPRING_DATASOURCE_PORT:5432}/${SPRING_DATASOURCE_DB:java_evaluation}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:patient210037}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+
+  # JPA 配置
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
   # Redis 配置
   data:
     redis:
-      host: redis
+      host: ${SPRING_REDIS_HOST:localhost}
       port: 6379
       timeout: 3000ms
       lettuce:
@@ -17,32 +35,52 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
-# 硅基流动配置
+  # RabbitMQ 配置
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${SPRING_RABBITMQ_USERNAME:admin}
+    password: ${SPRING_RABBITMQ_PASSWORD:patient210037}
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto  # 自动确认
+        prefetch: 1            # 每次只取1条消息
+        retry:
+          enabled: true
+          initial-interval: 3000
+          max-attempts: 3
+          multiplier: 2
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# SiliconFlow API 配置
 siliconflow:
-  api-key: "sk-okpdxfwbttwgrmjbjjycpljgsycroeihfreuwaarqldsodfs"
+  api-key: ${SILICONFLOW_API_KEY:sk-okpdxfwbttwgrmjbjjycpljgsycroeihfreuwaarqldsodfs}
   base-url: "https://api.siliconflow.cn"
   model: "deepseek-ai/DeepSeek-V3.2"
   timeout: 60000
 
-# Docker 执行器配置
+# Docker 沙箱配置
 docker:
-  executor:
+  sandbox:
     image: java-sandbox:latest
-    container-name: java-sandbox
-    memory-limit: 512m
+    memory-limit: 256m
     cpu-limit: 0.5
+    timeout: 30
 
-# 评审配置
-review:
-  stream:
-    key: "code:submit"        # 任务流
-    consumer-group: "code-processor"   # 消费者组
-  result:
-    stream: "code:result"     # 结果流
-    ttl: 86400
+# JWT 配置
+jwt:
+  secret: ${JWT_SECRET:java-evaluation-system-secret-key-2024-very-long-secret}
+  expiration: 86400000
 
 # 日志配置
 logging:
   level:
-    com.codereview: DEBUG
+    root: INFO
+    com.javaevaluation: DEBUG
     org.springframework: INFO
