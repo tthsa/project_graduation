@@ -14,8 +14,9 @@ public interface SubmissionHistoryMapper {
     /**
      * 插入提交历史
      */
-    @Insert("INSERT INTO submission_history (submission_id, file_paths, submit_time) " +
-            "VALUES (#{submissionId}, #{filePaths}, #{submitTime})")
+    @Insert("INSERT INTO submission_history (submission_id, submit_time) " +
+            "VALUES (#{submissionId}, #{submitTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(SubmissionHistory history);
 
     /**

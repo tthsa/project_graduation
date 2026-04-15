@@ -81,7 +81,8 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/public/**",
                                 "/ws/**",
-                                "/error"
+                                "/error",
+                                "/api/health"
                         ).permitAll()
                         // 管理员接口
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

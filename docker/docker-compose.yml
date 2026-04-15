@@ -81,7 +81,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=patient210037
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_USERNAME=admin
-      - SPRING_RABBITMQ_PASSWORD=admin123
+      - SPRING_RABBITMQ_PASSWORD=patient210037
       - SPRING_REDIS_HOST=redis
       - SILICONFLOW_API_KEY=sk-okpdxfwbttwgrmjbjjycpljgsycroeihfreuwaarqldsodfs
     volumes:

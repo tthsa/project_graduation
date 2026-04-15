@@ -13,7 +13,7 @@ import java.util.Map;
  * 健康检查控制器
  */
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api")
 public class HealthController {
 
     /**
@@ -41,7 +41,7 @@ public class HealthController {
         Map<String, String> info = new HashMap<>();
         info.put("service", "Code Review Backend API");
         info.put("version", "1.0.0");
-        info.put("docs", "/api/v1/health");
+        info.put("docs", "/api/health");
 
         return Result.success(info);
     }

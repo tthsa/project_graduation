@@ -14,16 +14,15 @@ public interface SubmissionMapper {
     /**
      * 插入提交记录
      */
-    @Insert("INSERT INTO submission (homework_id, student_id, file_paths, submit_time, status) " +
-            "VALUES (#{homeworkId}, #{studentId}, #{filePaths}, #{submitTime}, #{status})")
+    @Insert("INSERT INTO submission (homework_id, student_id, submit_time, status) " +
+            "VALUES (#{homeworkId}, #{studentId}, #{submitTime}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Submission submission);
 
     /**
      * 更新提交记录
      */
-    @Update("UPDATE submission SET file_paths = #{filePaths}, submit_time = #{submitTime}, " +
-            "status = #{status} WHERE id = #{id}")
+    @Update("UPDATE submission SET submit_time = #{submitTime}, status = #{status} WHERE id = #{id}")
     int update(Submission submission);
 
     /**
