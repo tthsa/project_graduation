@@ -22,13 +22,13 @@ public interface ClassInfoMapper {
     /**
      * 根据教师ID查询班级
      */
-    @Select("SELECT * FROM class WHERE teacher_id = #{teacherId} AND status = 1 ORDER BY created_at DESC")
+    @Select("SELECT * FROM class WHERE teacher_id = #{teacherId} AND status = 1 ORDER BY create_time DESC")
     List<ClassInfo> findByTeacherId(@Param("teacherId") Integer teacherId);
 
     /**
      * 查询所有班级
      */
-    @Select("SELECT * FROM class WHERE status = 1 ORDER BY created_at DESC")
+    @Select("SELECT * FROM class WHERE status = 1 ORDER BY create_time DESC")
     List<ClassInfo> findAll();
 
     /**

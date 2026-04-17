@@ -54,11 +54,12 @@ public class AuthController {
                 }
                 userId = admin.getId();
                 username = admin.getUsername();
-                name = "管理员";
+                name = admin.getName() != null ? admin.getName() : "管理员";
                 break;
 
             case "teacher":
-                Teacher teacher = teacherMapper.findByUsername(request.getUsername());
+                // 修改：使用工号登录
+                Teacher teacher = teacherMapper.findByTeacherNo(request.getUsername());
                 if (teacher == null) {
                     return Result.fail(ErrorCode.LOGIN_FAILED);
                 }
@@ -66,7 +67,7 @@ public class AuthController {
                     return Result.fail(ErrorCode.LOGIN_FAILED);
                 }
                 userId = teacher.getId();
-                username = teacher.getUsername();
+                username = teacher.getTeacherNo();  // 修改：使用工号
                 name = teacher.getName();
                 break;
 

@@ -15,9 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -169,7 +167,7 @@ public class DockerSandboxService {
             result.setCompileStatus("SUCCESS");
             result.setTestPassed(passed);
             result.setTestTotal(total);
-            result.setTestScore(calculateScore(passed, total, testCases));
+            result.setTestScore(calculateScore(passed, total));
             result.setOutput(String.join("\n", testResults));
 
             log.info("评测完成: taskId={}, passed={}/{}", task.getTaskId(), passed, total);
@@ -298,18 +296,11 @@ public class DockerSandboxService {
     }
 
     /**
-     * 计算分数
+     * 计算分数（按通过比例计算，满分100分）
      */
-    private Integer calculateScore(int passed, int total, List<TestCase> testCases) {
+    private Integer calculateScore(int passed, int total) {
         if (total == 0) return 0;
-
-        int score = 0;
-        for (int i = 0; i < testCases.size(); i++) {
-            if (i < passed) {
-                score += testCases.get(i).getScore();
-            }
-        }
-        return score;
+        return (int) ((passed * 100.0) / total);
     }
 
     /**

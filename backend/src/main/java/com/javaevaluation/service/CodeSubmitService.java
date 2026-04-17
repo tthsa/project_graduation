@@ -1,7 +1,7 @@
 package com.javaevaluation.service;
 
 import com.javaevaluation.dto.CodeTask;
-import com.javaevaluation.dto.ExecutionResult;
+import com.javaevaluation.entity.EvaluationResult;
 import com.javaevaluation.entity.Submission;
 import com.javaevaluation.entity.SubmissionFile;
 import com.javaevaluation.entity.SubmissionHistory;
@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 作业提交服务
@@ -51,27 +50,16 @@ public class CodeSubmitService {
             history.setSubmitTime(existing.getSubmitTime());
             submissionHistoryMapper.insert(history);
 
-            // 2b. 复制当前文件到历史记录
-            List<SubmissionFile> currentFiles = submissionFileMapper.findBySubmissionId(existing.getId());
-            for (SubmissionFile file : currentFiles) {
-                SubmissionFile historyFile = new SubmissionFile();
-                historyFile.setSubmissionId(history.getId());  // 关联到历史记录
-                historyFile.setFilePath(file.getFilePath());
-                historyFile.setFileName(file.getFileName());
-                historyFile.setFileSize(file.getFileSize());
-                historyFile.setUploadTime(file.getUploadTime());
-                // 注意：这里需要修改，历史文件应该关联到 submission_history
-                // 暂时先删除旧文件，后续可以优化
-            }
-
-            // 2c. 删除旧文件记录
+            // 2b. 删除旧文件记录
             submissionFileMapper.deleteBySubmissionId(existing.getId());
 
-            // 2d. 插入新文件记录
+            // 2c. 插入新文件记录
             List<SubmissionFile> newFiles = createSubmissionFiles(existing.getId(), filePaths);
-            submissionFileMapper.batchInsert(newFiles);
+            for (SubmissionFile file : newFiles) {
+                submissionFileMapper.insert(file);
+            }
 
-            // 2e. 更新提交记录
+            // 2d. 更新提交记录
             existing.setSubmitTime(LocalDateTime.now());
             existing.setStatus(0);  // 重置为待评测
             submissionMapper.update(existing);
@@ -81,7 +69,7 @@ public class CodeSubmitService {
 
             return existing.getId();
         } else {
-            // 2c. 创建新提交记录
+            // 2a. 创建新提交记录
             Submission submission = new Submission();
             submission.setStudentId(studentId);
             submission.setHomeworkId(homeworkId);
@@ -89,11 +77,13 @@ public class CodeSubmitService {
             submission.setStatus(0);  // 待评测
             submissionMapper.insert(submission);
 
-            // 3. 插入文件记录
+            // 2b. 插入文件记录
             List<SubmissionFile> files = createSubmissionFiles(submission.getId(), filePaths);
-            submissionFileMapper.batchInsert(files);
+            for (SubmissionFile file : files) {
+                submissionFileMapper.insert(file);
+            }
 
-            // 4. 发送评测任务
+            // 3. 发送评测任务
             sendEvaluationTask(submission, filePaths);
 
             return submission.getId();
@@ -104,34 +94,16 @@ public class CodeSubmitService {
      * 创建提交文件列表
      */
     private List<SubmissionFile> createSubmissionFiles(Integer submissionId, List<String> filePaths) {
-        LocalDateTime now = LocalDateTime.now();
         List<SubmissionFile> files = new ArrayList<>();
 
         for (String path : filePaths) {
             SubmissionFile file = new SubmissionFile();
             file.setSubmissionId(submissionId);
             file.setFilePath(path);
-            file.setFileName(extractFileName(path));
-            file.setFileSize(0L);  // 文件大小可以后续补充
-            file.setUploadTime(now);
             files.add(file);
         }
 
         return files;
-    }
-
-    /**
-     * 从路径中提取文件名
-     */
-    private String extractFileName(String path) {
-        if (path == null || path.isEmpty()) {
-            return "";
-        }
-        int lastSlash = path.lastIndexOf('/');
-        if (lastSlash == -1) {
-            lastSlash = path.lastIndexOf('\\');
-        }
-        return lastSlash == -1 ? path : path.substring(lastSlash + 1);
     }
 
     /**
@@ -161,8 +133,8 @@ public class CodeSubmitService {
     /**
      * 获取评测结果
      */
-    public ExecutionResult getResult(Integer submissionId) {
-        return resultService.getResult(String.valueOf(submissionId));
+    public EvaluationResult getResult(Integer submissionId) {
+        return resultService.getResult(submissionId);
     }
 
     /**
@@ -171,16 +143,5 @@ public class CodeSubmitService {
     public Integer getStatus(Integer submissionId) {
         Submission submission = submissionMapper.findById(submissionId);
         return submission != null ? submission.getStatus() : null;
-    }
-
-    /**
-     * 更新提交状态
-     */
-    @Transactional
-    public void updateStatus(Integer submissionId, Integer status) {
-        Submission submission = new Submission();
-        submission.setId(submissionId);
-        submission.setStatus(status);
-        submissionMapper.update(submission);
     }
 }

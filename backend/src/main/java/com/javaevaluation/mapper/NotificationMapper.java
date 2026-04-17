@@ -1,39 +1,30 @@
 package com.javaevaluation.mapper;
 
 import com.javaevaluation.entity.Notification;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
-/**
- * 通知Mapper接口
- */
 @Mapper
 public interface NotificationMapper {
 
-    /**
-     * 根据ID查询通知
-     */
-    @Select("SELECT * FROM notification WHERE id = #{id}")
-    Notification findById(@Param("id") Integer id);
+    @Select("SELECT * FROM notification WHERE user_id = #{userId} ORDER BY create_time DESC")
+    List<Notification> findByUserId(Integer userId);
 
-    /**
-     * 根据用户ID查询通知
-     */
-    @Select("SELECT * FROM notification WHERE user_id = #{userId} AND user_type = #{userType} ORDER BY created_at DESC")
-    List<Notification> findByUserIdAndUserType(@Param("userId") Integer userId, @Param("userType") String userType);
+    @Select("SELECT * FROM notification WHERE user_id = #{userId} AND is_read = 0 ORDER BY create_time DESC")
+    List<Notification> findUnreadByUserId(Integer userId);
 
-    /**
-     * 查询未读通知
-     */
-    @Select("SELECT * FROM notification WHERE user_id = #{userId} AND user_type = #{userType} AND is_read = 0 ORDER BY created_at DESC")
-    List<Notification> findUnread(@Param("userId") Integer userId, @Param("userType") String userType);
+    @Insert("INSERT INTO notification (user_id, title, content, is_read, create_time) " +
+            "VALUES (#{userId}, #{title}, #{content}, 0, #{createdAt})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Notification notification);
 
-    /**
-     * 统计未读通知数量
-     */
-    @Select("SELECT COUNT(*) FROM notification WHERE user_id = #{userId} AND user_type = #{userType} AND is_read = 0")
-    int countUnread(@Param("userId") Integer userId, @Param("userType") String userType);
+    @Update("UPDATE notification SET is_read = 1 WHERE id = #{id}")
+    int markAsRead(Integer id);
+
+    @Update("UPDATE notification SET is_read = 1 WHERE user_id = #{userId}")
+    int markAllAsRead(Integer userId);
+
+    @Delete("DELETE FROM notification WHERE id = #{id}")
+    int delete(Integer id);
 }

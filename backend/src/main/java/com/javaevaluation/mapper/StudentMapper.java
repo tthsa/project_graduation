@@ -1,45 +1,40 @@
 package com.javaevaluation.mapper;
 
 import com.javaevaluation.entity.Student;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
-/**
- * 学生Mapper接口
- */
 @Mapper
 public interface StudentMapper {
 
-    /**
-     * 根据学号查询学生
-     */
-    @Select("SELECT * FROM student WHERE student_no = #{studentNo}")
-    Student findByStudentNo(@Param("studentNo") String studentNo);
-
-    /**
-     * 根据ID查询学生
-     */
     @Select("SELECT * FROM student WHERE id = #{id}")
-    Student findById(@Param("id") Integer id);
+    Student findById(Integer id);
 
-    /**
-     * 根据班级ID查询学生
-     */
-    @Select("SELECT * FROM student WHERE class_id = #{classId} AND status = 1 ORDER BY student_no")
-    List<Student> findByClassId(@Param("classId") Integer classId);
+    @Select("SELECT * FROM student WHERE student_no = #{studentNo}")
+    Student findByStudentNo(String studentNo);
 
-    /**
-     * 查询所有学生
-     */
-    @Select("SELECT * FROM student WHERE status = 1 ORDER BY class_id, student_no")
+    @Select("SELECT * FROM student WHERE class_id = #{classId}")
+    List<Student> findByClassId(Integer classId);
+
+    @Select("SELECT * FROM student")
     List<Student> findAll();
 
-    /**
-     * 根据班级ID统计学生数量
-     */
-    @Select("SELECT COUNT(*) FROM student WHERE class_id = #{classId} AND status = 1")
-    int countByClassId(@Param("classId") Integer classId);
+    @Insert("INSERT INTO student (student_no, password, name, email, class_id, status, first_login, create_time) " +
+            "VALUES (#{studentNo}, #{password}, #{name}, #{email}, #{classId}, #{status}, #{firstLogin}, #{createdAt})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Student student);
+
+    @Update("UPDATE student SET name = #{name}, email = #{email}, class_id = #{classId}, " +
+            "status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}")
+    int update(Student student);
+
+    @Update("UPDATE student SET password = #{password} WHERE id = #{id}")
+    int updatePassword(@Param("id") Integer id, @Param("password") String password);
+
+    @Update("UPDATE student SET first_login = 0 WHERE id = #{id}")
+    int markFirstLoginDone(Integer id);
+
+    @Delete("DELETE FROM student WHERE id = #{id}")
+    int delete(Integer id);
 }

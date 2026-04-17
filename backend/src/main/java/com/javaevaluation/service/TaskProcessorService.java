@@ -73,7 +73,7 @@ public class TaskProcessorService {
     /**
      * 更新提交状态
      */
-    private void updateSubmissionStatus(Integer submissionId, Integer status) {
+    public void updateSubmissionStatus(Integer submissionId, Integer status) {
         Submission submission = new Submission();
         submission.setId(submissionId);
         submission.setStatus(status);
@@ -86,17 +86,11 @@ public class TaskProcessorService {
     private void saveEvaluationResult(CodeTask task, ExecutionResult result,
                                       String llmReview, Integer llmScore) {
         EvaluationResult evaluationResult = new EvaluationResult();
-        evaluationResult.setTaskId(task.getSubmissionId());  // 使用submissionId作为taskId
         evaluationResult.setSubmissionId(task.getSubmissionId());
-        evaluationResult.setStudentId(task.getStudentId());
-        evaluationResult.setCompileStatus(result.getCompileStatus());
-        evaluationResult.setTestPassed(result.getTestPassed());
-        evaluationResult.setTestTotal(result.getTestTotal());
         evaluationResult.setTestScore(result.getTestScore());
         evaluationResult.setLlmScore(llmScore);
-        evaluationResult.setTotalScore(result.getTestScore() + llmScore);
         evaluationResult.setLlmReview(llmReview);
-        evaluationResult.setErrorMessage(result.getErrorMessage());
+        evaluationResult.setExecutionTime(0L);  // 可以后续补充
         evaluationResult.setCreatedAt(LocalDateTime.now());
 
         evaluationResultMapper.insert(evaluationResult);

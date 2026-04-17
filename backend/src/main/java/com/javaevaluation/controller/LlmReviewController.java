@@ -1,13 +1,10 @@
 package com.javaevaluation.controller;
 
-import com.javaevaluation.dto.ApiResponse;
+import com.javaevaluation.common.Result;
 import com.javaevaluation.service.LlmReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /**
  * LLM代码评审Controller
@@ -24,17 +21,17 @@ public class LlmReviewController {
      * 评审代码
      */
     @PostMapping("/review")
-    public ResponseEntity<ApiResponse<String>> reviewCode(@RequestBody String code) {
+    public Result<String> reviewCode(@RequestBody String code) {
         String review = llmReviewService.reviewCode(code);
-        return ResponseEntity.ok(ApiResponse.success(review));
+        return Result.success(review);
     }
 
     /**
      * 提取分数
      */
     @PostMapping("/extract-score")
-    public ResponseEntity<ApiResponse<Integer>> extractScore(@RequestBody String review) {
+    public Result<Integer> extractScore(@RequestBody String review) {
         Integer score = llmReviewService.extractScore(review);
-        return ResponseEntity.ok(ApiResponse.success(score));
+        return Result.success(score);
     }
 }

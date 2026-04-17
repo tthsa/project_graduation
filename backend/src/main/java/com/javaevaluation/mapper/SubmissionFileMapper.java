@@ -14,26 +14,15 @@ public interface SubmissionFileMapper {
     /**
      * 插入文件记录
      */
-    @Insert("INSERT INTO submission_file (submission_id, file_path, file_name, file_size, upload_time) " +
-            "VALUES (#{submissionId}, #{filePath}, #{fileName}, #{fileSize}, #{uploadTime})")
+    @Insert("INSERT INTO submission_file (submission_id, file_path) " +
+            "VALUES (#{submissionId}, #{filePath})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(SubmissionFile file);
 
     /**
-     * 批量插入文件记录
-     */
-    @Insert("<script>" +
-            "INSERT INTO submission_file (submission_id, file_path, file_name, file_size, upload_time) VALUES " +
-            "<foreach collection='files' item='file' separator=','>" +
-            "(#{file.submissionId}, #{file.filePath}, #{file.fileName}, #{file.fileSize}, #{file.uploadTime})" +
-            "</foreach>" +
-            "</script>")
-    int batchInsert(@Param("files") List<SubmissionFile> files);
-
-    /**
      * 根据提交ID查询文件列表
      */
-    @Select("SELECT * FROM submission_file WHERE submission_id = #{submissionId} ORDER BY upload_time")
+    @Select("SELECT * FROM submission_file WHERE submission_id = #{submissionId}")
     List<SubmissionFile> findBySubmissionId(@Param("submissionId") Integer submissionId);
 
     /**
@@ -55,8 +44,7 @@ public interface SubmissionFileMapper {
     int countBySubmissionId(@Param("submissionId") Integer submissionId);
 
     /**
-     * 统计提交的文件总大小
+     * 批量插入文件记录
      */
-    @Select("SELECT COALESCE(SUM(file_size), 0) FROM submission_file WHERE submission_id = #{submissionId}")
-    Long sumFileSizeBySubmissionId(@Param("submissionId") Integer submissionId);
+    int batchInsert(@Param("files") List<SubmissionFile> files);
 }

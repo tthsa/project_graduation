@@ -51,10 +51,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 break;
 
             case "teacher":
-                Teacher teacher = teacherMapper.findByUsername(name);
+                Teacher teacher = teacherMapper.findByTeacherNo(name);
                 if (teacher != null) {
                     return User.builder()
-                            .username("teacher:" + teacher.getUsername())
+                            .username("teacher:" + teacher.getTeacherNo())
                             .password(teacher.getPassword())
                             .authorities(Collections.singletonList(new SimpleGrantedAuthority("ROLE_TEACHER")))
                             .build();

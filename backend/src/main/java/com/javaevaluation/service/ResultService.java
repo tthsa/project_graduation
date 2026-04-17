@@ -1,49 +1,49 @@
 package com.javaevaluation.service;
 
-import com.javaevaluation.dto.ExecutionResult;
-import lombok.extern.slf4j.Slf4j;
+import com.javaevaluation.entity.EvaluationResult;  // ✅ 改为 entity 包
+import com.javaevaluation.entity.Submission;
+import com.javaevaluation.mapper.EvaluationResultMapper;
+import com.javaevaluation.mapper.SubmissionMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 结果存储服务
- * 用于存储和查询评测结果
- */
-@Slf4j
 @Service
 public class ResultService {
 
-    private final Map<String, ExecutionResult> resultCache = new ConcurrentHashMap<>();
+    @Autowired
+    private EvaluationResultMapper evaluationResultMapper;
+
+    @Autowired
+    private SubmissionMapper submissionMapper;
+
+    // 查询缓存
+    private final Map<Integer, EvaluationResult> cache = new ConcurrentHashMap<>();
 
     /**
-     * 保存结果
+     * 获取评测结果
      */
-    public void saveResult(String taskId, ExecutionResult result) {
-        resultCache.put(taskId, result);
-        log.info("保存评测结果: taskId={}", taskId);
+    public EvaluationResult getResult(Integer submissionId) {
+        // 1. 先查缓存
+        EvaluationResult cached = cache.get(submissionId);
+        if (cached != null) {
+            return cached;
+        }
+
+        // 2. 查数据库
+        EvaluationResult result = evaluationResultMapper.findBySubmissionId(submissionId);
+        if (result != null) {
+            cache.put(submissionId, result);
+        }
+        return result;
     }
 
     /**
-     * 获取结果
+     * 清除缓存
      */
-    public ExecutionResult getResult(String taskId) {
-        return resultCache.get(taskId);
-    }
-
-    /**
-     * 删除结果
-     */
-    public void deleteResult(String taskId) {
-        resultCache.remove(taskId);
-        log.info("删除评测结果: taskId={}", taskId);
-    }
-
-    /**
-     * 检查结果是否存在
-     */
-    public boolean hasResult(String taskId) {
-        return resultCache.containsKey(taskId);
+    public void evictCache(Integer submissionId) {
+        cache.remove(submissionId);
     }
 }
