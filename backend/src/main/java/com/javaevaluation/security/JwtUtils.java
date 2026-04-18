@@ -37,9 +37,10 @@ public class JwtUtils {
         claims.put("username", username);
         claims.put("userType", userType);
 
+        String subject = userType + ":" + username;
         return Jwts.builder()
                 .claims(claims)
-                .subject(username)
+                .subject(subject)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSigningKey())

@@ -10,14 +10,7 @@ public class PasswordTest {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String rawPassword = "123456";
         String encodedPassword = encoder.encode(rawPassword);
-
-        System.out.println("========================================");
         System.out.println("原始密码: " + rawPassword);
-        System.out.println("BCrypt加密后: " + encodedPassword);
-        System.out.println("========================================");
-
-        // 验证是否匹配
-        boolean matches = encoder.matches(rawPassword, encodedPassword);
-        System.out.println("验证结果: " + matches);
+        System.out.println("加密密码: " + encodedPassword);
     }
 }
