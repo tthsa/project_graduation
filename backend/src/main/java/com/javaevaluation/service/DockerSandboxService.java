@@ -3,9 +3,7 @@ package com.javaevaluation.service;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.Volume;
 import com.javaevaluation.dto.CodeTask;
 import com.javaevaluation.dto.ExecutionResult;
 import com.javaevaluation.entity.SubmissionFile;
@@ -14,14 +12,17 @@ import com.javaevaluation.mapper.SubmissionFileMapper;
 import com.javaevaluation.mapper.TestCaseMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -56,28 +57,34 @@ public class DockerSandboxService {
         ExecutionResult result = new ExecutionResult();
         result.setTaskId(task.getTaskId());
 
+        log.info("🚀 开始执行评测任务: taskId={}, submissionId={}", task.getTaskId(), task.getSubmissionId());
+
         try {
             // 1. 从数据库读取代码文件
             List<SubmissionFile> files = submissionFileMapper.findBySubmissionId(task.getSubmissionId());
             if (files == null || files.isEmpty()) {
+                log.error("❌ 未找到提交的代码文件: submissionId={}", task.getSubmissionId());
                 result.setCompileStatus("FAILED");
                 result.setErrorMessage("未找到提交的代码文件");
                 return result;
             }
+            log.info("✅ 找到 {} 个代码文件", files.size());
 
             // 2. 获取测试用例
             List<TestCase> testCases = testCaseMapper.findByHomeworkId(task.getHomeworkId());
             if (testCases.isEmpty()) {
+                log.error("❌ 没有找到测试用例: homeworkId={}", task.getHomeworkId());
                 result.setCompileStatus("FAILED");
                 result.setErrorMessage("没有找到测试用例");
                 return result;
             }
+            log.info("✅ 找到 {} 个测试用例", testCases.size());
 
             // 3. 在Docker中编译和执行
             return executeInDocker(task, files, testCases);
 
         } catch (Exception e) {
-            log.error("执行任务失败: taskId={}, error={}", task.getTaskId(), e.getMessage(), e);
+            log.error("❌ 执行任务失败: taskId={}, error={}", task.getTaskId(), e.getMessage(), e);
             result.setCompileStatus("ERROR");
             result.setErrorMessage(e.getMessage());
             return result;
@@ -94,75 +101,97 @@ public class DockerSandboxService {
         String containerId = null;
         String workDir = "/tmp/eval_" + UUID.randomUUID().toString().replace("-", "");
 
+        log.info("🚀 开始Docker执行: workDir={}, image={}", workDir, dockerImage);
+
         try {
-            // 1. 创建工作目录
+            // 1. 创建本地工作目录
             File localWorkDir = new File(workDir);
             if (!localWorkDir.mkdirs()) {
+                log.error("❌ 无法创建工作目录: {}", workDir);
                 throw new RuntimeException("无法创建工作目录");
             }
+            log.info("✅ 工作目录创建成功: {}", workDir);
 
-            // 2. 写入所有源代码文件
+            // 2. 写入所有源代码文件到本地
             String mainClassName = null;
             for (SubmissionFile file : files) {
                 File sourceFile = new File(localWorkDir, file.getFileName());
                 Files.writeString(sourceFile.toPath(), file.getFileContent(), StandardCharsets.UTF_8);
+                log.info("✅ 写入源文件: {}, 大小: {} bytes", file.getFileName(), file.getFileContent().length());
 
                 // 查找包含main方法的类
                 if (file.getFileContent().contains("public static void main")) {
                     mainClassName = extractClassName(file.getFileContent());
+                    log.info("✅ 找到主类: {}", mainClassName);
                 }
             }
 
             if (mainClassName == null) {
+                log.error("❌ 未找到包含main方法的类");
                 result.setCompileStatus("FAILED");
                 result.setErrorMessage("未找到包含main方法的类");
                 return result;
             }
 
             // 3. 创建Docker容器
+            log.info("🐳 创建Docker容器: image={}", dockerImage);
             CreateContainerResponse container = dockerClient.createContainerCmd(dockerImage)
                     .withHostConfig(HostConfig.newHostConfig()
                             .withMemory(parseMemory(memoryLimit))
-                            .withBinds(new Bind(localWorkDir.getAbsolutePath(), new Volume("/app")))
                             .withAutoRemove(true))
-                    .withWorkingDir("/app")
-                    .withCmd("tail", "-f", "/dev/null")  // 保持容器运行
+                    .withWorkingDir("/sandbox")
                     .exec();
             containerId = container.getId();
-            dockerClient.startContainerCmd(containerId).exec();
+            log.info("✅ 容器创建成功: containerId={}", containerId);
 
-            // 4. 编译所有代码
-            ExecutionResult compileResult = compileAllInContainer(containerId, files);
-            if (!"SUCCESS".equals(compileResult.getCompileStatus())) {
-                return compileResult;
+            // 4. 启动容器
+            dockerClient.startContainerCmd(containerId).exec();
+            log.info("✅ 容器启动成功");
+
+            // 5. 复制文件到容器
+            for (SubmissionFile file : files) {
+                File sourceFile = new File(localWorkDir, file.getFileName());
+                copyFileToContainer(containerId, sourceFile);
+                log.info("✅ 复制文件到容器: {}", file.getFileName());
             }
 
-            // 5. 执行测试用例
+            // 6. 编译所有代码
+            log.info("🔨 开始编译代码...");
+            ExecutionResult compileResult = compileAllInContainer(containerId, files);
+            if (!"SUCCESS".equals(compileResult.getCompileStatus())) {
+                log.error("❌ 编译失败: {}", compileResult.getErrorMessage());
+                return compileResult;
+            }
+            log.info("✅ 编译成功");
+
+            // 7. 执行测试用例
             int passed = 0;
             int total = testCases.size();
             List<String> testResults = new ArrayList<>();
 
+            log.info("🧪 开始执行 {} 个测试用例...", total);
             for (TestCase testCase : testCases) {
-                TestResult testResult = runTestCase(containerId, mainClassName, testCase);
+                TestResult testResult = runTestCase(containerId, mainClassName, testCase, localWorkDir);
                 testResults.add(String.format("测试用例[%s]: %s",
                         testCase.getName(),
                         testResult.passed ? "通过" : "失败"));
+                log.info("🧪 测试用例[{}]: {}", testCase.getName(), testResult.passed ? "✅ 通过" : "❌ 失败");
                 if (testResult.passed) {
                     passed++;
                 }
             }
 
-            // 6. 设置结果
+            // 8. 设置结果
             result.setCompileStatus("SUCCESS");
             result.setTestPassed(passed);
             result.setTestTotal(total);
             result.setTestScore(calculateScore(passed, total));
             result.setOutput(String.join("\n", testResults));
 
-            log.info("评测完成: taskId={}, passed={}/{}", task.getTaskId(), passed, total);
+            log.info("🎉 评测完成: taskId={}, passed={}/{}, score={}", task.getTaskId(), passed, total, result.getTestScore());
 
         } catch (Exception e) {
-            log.error("Docker执行失败: {}", e.getMessage(), e);
+            log.error("❌ Docker执行失败: {}", e.getMessage(), e);
             result.setCompileStatus("ERROR");
             result.setErrorMessage(e.getMessage());
         } finally {
@@ -170,14 +199,50 @@ public class DockerSandboxService {
             if (containerId != null) {
                 try {
                     dockerClient.stopContainerCmd(containerId).exec();
+                    log.info("🧹 容器已停止");
                 } catch (Exception ignored) {
                 }
             }
             // 清理工作目录
             deleteDirectory(new File(workDir));
+            log.info("🧹 工作目录已清理");
         }
 
         return result;
+    }
+
+    /**
+     * 复制文件到容器
+     */
+    private void copyFileToContainer(String containerId, File localFile) {
+        try (ByteArrayOutputStream tarStream = new ByteArrayOutputStream();
+             TarArchiveOutputStream tarOut = new TarArchiveOutputStream(tarStream);
+             FileInputStream fis = new FileInputStream(localFile)) {
+
+            // 创建tar条目
+            TarArchiveEntry entry = new TarArchiveEntry(localFile, localFile.getName());
+            entry.setSize(localFile.length());
+            tarOut.putArchiveEntry(entry);
+
+            // 写入文件内容
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                tarOut.write(buffer, 0, len);
+            }
+            tarOut.closeArchiveEntry();
+            tarOut.finish();
+
+            // 复制到容器
+            dockerClient.copyArchiveToContainerCmd(containerId)
+                    .withTarInputStream(new ByteArrayInputStream(tarStream.toByteArray()))
+                    .withRemotePath("/sandbox")
+                    .exec();
+
+        } catch (Exception e) {
+            log.error("❌ 复制文件到容器失败: {}", e.getMessage(), e);
+            throw new RuntimeException("复制文件到容器失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -187,12 +252,23 @@ public class DockerSandboxService {
         ExecutionResult result = new ExecutionResult();
 
         try {
+            // 调试：列出容器内/sandbox目录内容
+            ExecCreateCmdResponse debugExec = dockerClient.execCreateCmd(containerId)
+                    .withCmd("ls", "-la", "/sandbox")
+                    .withAttachStdout(true)
+                    .withAttachStderr(true)
+                    .exec();
+            String debugOutput = executeCommand(containerId, debugExec);
+            log.info("📁 容器内/sandbox目录内容:\n{}", debugOutput);
+
             // 构建javac命令，编译所有.java文件
             List<String> cmd = new ArrayList<>();
             cmd.add("javac");
             for (SubmissionFile file : files) {
                 cmd.add(file.getFileName());
             }
+
+            log.info("🔨 执行编译命令: {}", cmd);
 
             ExecCreateCmdResponse execCreate = dockerClient.execCreateCmd(containerId)
                     .withCmd(cmd.toArray(new String[0]))
@@ -201,6 +277,7 @@ public class DockerSandboxService {
                     .exec();
 
             String output = executeCommand(containerId, execCreate);
+            log.info("📝 编译输出: {}", output);
 
             // 检查编译结果
             if (output.contains("error") || output.contains("错误")) {
@@ -211,6 +288,7 @@ public class DockerSandboxService {
             }
 
         } catch (Exception e) {
+            log.error("❌ 编译异常: {}", e.getMessage(), e);
             result.setCompileStatus("ERROR");
             result.setErrorMessage(e.getMessage());
         }
@@ -221,29 +299,45 @@ public class DockerSandboxService {
     /**
      * 执行单个测试用例
      */
-    private TestResult runTestCase(String containerId, String className, TestCase testCase) {
+    private TestResult runTestCase(String containerId, String className, TestCase testCase, File localWorkDir) {
         TestResult result = new TestResult();
 
         try {
-            // 执行java程序
+            // 1. 将输入写入本地文件
+            File inputFile = new File(localWorkDir, "input.txt");
+            Files.writeString(inputFile.toPath(), testCase.getInput(), StandardCharsets.UTF_8);
+
+            // 2. 复制输入文件到容器
+            copyFileToContainer(containerId, inputFile);
+
+            // 3. 在容器中执行
             ExecCreateCmdResponse execCreate = dockerClient.execCreateCmd(containerId)
-                    .withCmd("java", "-cp", ".", className)
+                    .withCmd("sh", "-c", "java -cp . " + className + " < input.txt")
                     .withAttachStdout(true)
                     .withAttachStderr(true)
-                    .withAttachStdin(true)
                     .exec();
 
-            String output = executeCommandWithInput(containerId, execCreate, testCase.getInput());
+            String output = executeCommand(containerId, execCreate);
 
-            // 比较输出
+            // 4. 比较输出
             String expected = testCase.getExpectedOutput().trim();
             String actual = output.trim();
             result.passed = expected.equals(actual);
             result.output = output;
 
+            log.debug("测试用例[{}]: input={}, expected={}, actual={}, passed={}",
+                    testCase.getName(), testCase.getInput(), expected, actual, result.passed);
+
         } catch (Exception e) {
             result.passed = false;
             result.output = "执行异常: " + e.getMessage();
+            log.error("❌ 测试用例执行异常: {}", e.getMessage(), e);
+        } finally {
+            // 清理输入文件
+            try {
+                new File(localWorkDir, "input.txt").delete();
+            } catch (Exception ignored) {
+            }
         }
 
         return result;
@@ -264,34 +358,25 @@ public class DockerSandboxService {
                     })
                     .awaitCompletion(timeoutSeconds, TimeUnit.SECONDS);
         } catch (Exception e) {
-            log.error("执行命令失败", e);
+            log.error("❌ 执行命令失败", e);
         }
         return output.toString();
-    }
-
-    /**
-     * 执行命令（带输入）
-     */
-    private String executeCommandWithInput(String containerId, ExecCreateCmdResponse execCreate, String input) {
-        // 简化实现，实际需要处理stdin
-        return executeCommand(containerId, execCreate);
     }
 
     /**
      * 从源代码中提取类名
      */
     private String extractClassName(String sourceCode) {
-        // 简单提取public class后面的类名
         String pattern = "public\\s+class\\s+(\\w+)";
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(sourceCode);
         if (matcher.find()) {
             return matcher.group(1);
         }
-        return "Main";  // 默认类名
+        return "Main";
     }
 
     /**
-     * 计算分数（按通过比例计算，满分100分）
+     * 计算分数
      */
     private Integer calculateScore(int passed, int total) {
         if (total == 0) return 0;

@@ -67,11 +67,9 @@ siliconflow:
 
 # Docker 沙箱配置
 docker:
-  sandbox:
-    image: java-sandbox:latest
-    memory-limit: 256m
-    cpu-limit: 0.5
-    timeout: 30
+  image: java-sandbox:latest
+  memory: 256m
+  timeout: 30
 
 # JWT 配置
 jwt:

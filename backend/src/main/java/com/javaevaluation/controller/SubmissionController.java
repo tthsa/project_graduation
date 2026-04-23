@@ -23,9 +23,9 @@ public class SubmissionController {
      */
     @PostMapping("/submit")
     public ResponseEntity<?> submitHomework(
-            @RequestParam Integer studentId,
-            @RequestParam Integer homeworkId,
-            @RequestParam("files") MultipartFile[] files) {
+            @RequestParam(name = "studentId") Integer studentId,
+            @RequestParam(name = "homeworkId") Integer homeworkId,
+            @RequestParam(name = "files") MultipartFile[] files) {
         try {
             // 验证文件
             if (files == null || files.length == 0) {
@@ -64,7 +64,7 @@ public class SubmissionController {
      * 获取提交的文件列表
      */
     @GetMapping("/files/{submissionId}")
-    public ResponseEntity<?> getSubmissionFiles(@PathVariable Integer submissionId) {
+    public ResponseEntity<?> getSubmissionFiles(@PathVariable(name = "submissionId") Integer submissionId) {
         List<SubmissionFile> files = codeSubmitService.getSubmissionFiles(submissionId);
         return ResponseEntity.ok().body(Map.of(
                 "code", 200,
@@ -76,7 +76,7 @@ public class SubmissionController {
      * 获取评测结果
      */
     @GetMapping("/result/{submissionId}")
-    public ResponseEntity<?> getResult(@PathVariable Integer submissionId) {
+    public ResponseEntity<?> getResult(@PathVariable(name = "submissionId") Integer submissionId) {
         EvaluationResult result = codeSubmitService.getResult(submissionId);
         return ResponseEntity.ok().body(Map.of(
                 "code", 200,
@@ -88,7 +88,7 @@ public class SubmissionController {
      * 获取提交状态
      */
     @GetMapping("/status/{submissionId}")
-    public ResponseEntity<?> getStatus(@PathVariable Integer submissionId) {
+    public ResponseEntity<?> getStatus(@PathVariable(name = "submissionId") Integer submissionId) {
         Integer status = codeSubmitService.getStatus(submissionId);
         return ResponseEntity.ok().body(Map.of(
                 "code", 200,
