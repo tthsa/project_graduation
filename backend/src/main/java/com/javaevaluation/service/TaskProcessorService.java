@@ -46,7 +46,8 @@ public class TaskProcessorService {
             Integer llmScore = 0;
             if ("SUCCESS".equals(result.getCompileStatus())) {
                 try {
-                    llmReview = llmReviewService.reviewCode(result);
+                    // 修改：传入submissionId
+                    llmReview = llmReviewService.reviewCode(task.getSubmissionId(), result);
                     llmScore = llmReviewService.extractScore(llmReview);
                 } catch (Exception e) {
                     log.warn("LLM评审失败: {}", e.getMessage());

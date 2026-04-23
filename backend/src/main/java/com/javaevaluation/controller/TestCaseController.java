@@ -14,7 +14,7 @@ import java.util.List;
  * 测试用例控制器
  */
 @RestController
-@RequestMapping("/api/testcase")
+@RequestMapping("/api/teacher/testcase")
 @RequiredArgsConstructor
 public class TestCaseController {
 

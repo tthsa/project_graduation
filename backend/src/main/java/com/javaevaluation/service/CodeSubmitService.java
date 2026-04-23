@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +38,11 @@ public class CodeSubmitService {
      * 提交作业
      * @param studentId 学生ID
      * @param homeworkId 作业ID
-     * @param filePaths 文件路径列表
+     * @param files 上传的文件数组
      * @return 提交ID
      */
     @Transactional
-    public Integer submitHomework(Integer studentId, Integer homeworkId, List<String> filePaths) {
+    public Integer submitHomework(Integer studentId, Integer homeworkId, MultipartFile[] files) throws IOException {
         // 1. 查询是否已有提交记录
         Submission existing = submissionMapper.findByHomeworkIdAndStudentId(homeworkId, studentId);
 
@@ -54,7 +57,7 @@ public class CodeSubmitService {
             submissionFileMapper.deleteBySubmissionId(existing.getId());
 
             // 2c. 插入新文件记录
-            List<SubmissionFile> newFiles = createSubmissionFiles(existing.getId(), filePaths);
+            List<SubmissionFile> newFiles = createSubmissionFiles(existing.getId(), files);
             for (SubmissionFile file : newFiles) {
                 submissionFileMapper.insert(file);
             }
@@ -65,7 +68,7 @@ public class CodeSubmitService {
             submissionMapper.update(existing);
 
             // 3. 发送评测任务
-            sendEvaluationTask(existing, filePaths);
+            sendEvaluationTask(existing);
 
             return existing.getId();
         } else {
@@ -78,13 +81,13 @@ public class CodeSubmitService {
             submissionMapper.insert(submission);
 
             // 2b. 插入文件记录
-            List<SubmissionFile> files = createSubmissionFiles(submission.getId(), filePaths);
-            for (SubmissionFile file : files) {
+            List<SubmissionFile> submissionFiles = createSubmissionFiles(submission.getId(), files);
+            for (SubmissionFile file : submissionFiles) {
                 submissionFileMapper.insert(file);
             }
 
             // 3. 发送评测任务
-            sendEvaluationTask(submission, filePaths);
+            sendEvaluationTask(submission);
 
             return submission.getId();
         }
@@ -93,29 +96,34 @@ public class CodeSubmitService {
     /**
      * 创建提交文件列表
      */
-    private List<SubmissionFile> createSubmissionFiles(Integer submissionId, List<String> filePaths) {
-        List<SubmissionFile> files = new ArrayList<>();
+    private List<SubmissionFile> createSubmissionFiles(Integer submissionId, MultipartFile[] files) throws IOException {
+        List<SubmissionFile> submissionFiles = new ArrayList<>();
 
-        for (String path : filePaths) {
-            SubmissionFile file = new SubmissionFile();
-            file.setSubmissionId(submissionId);
-            file.setFilePath(path);
-            files.add(file);
+        for (int i = 0; i < files.length; i++) {
+            MultipartFile file = files[i];
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+
+            SubmissionFile submissionFile = new SubmissionFile();
+            submissionFile.setSubmissionId(submissionId);
+            submissionFile.setFileName(file.getOriginalFilename());
+            submissionFile.setFileContent(content);
+            submissionFile.setFileOrder(i);
+
+            submissionFiles.add(submissionFile);
         }
 
-        return files;
+        return submissionFiles;
     }
 
     /**
      * 发送评测任务
      */
-    private void sendEvaluationTask(Submission submission, List<String> filePaths) {
+    private void sendEvaluationTask(Submission submission) {
         CodeTask task = CodeTask.builder()
                 .taskId(String.valueOf(submission.getId()))
                 .submissionId(submission.getId())
                 .studentId(submission.getStudentId())
                 .homeworkId(submission.getHomeworkId())
-                .filePaths(filePaths.toArray(new String[0]))
                 .timestamp(System.currentTimeMillis())
                 .build();
 

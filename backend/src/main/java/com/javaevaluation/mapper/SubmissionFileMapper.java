@@ -14,15 +14,15 @@ public interface SubmissionFileMapper {
     /**
      * 插入文件记录
      */
-    @Insert("INSERT INTO submission_file (submission_id, file_path) " +
-            "VALUES (#{submissionId}, #{filePath})")
+    @Insert("INSERT INTO submission_file (submission_id, file_name, file_content, file_order) " +
+            "VALUES (#{submissionId}, #{fileName}, #{fileContent}, #{fileOrder})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(SubmissionFile file);
 
     /**
      * 根据提交ID查询文件列表
      */
-    @Select("SELECT * FROM submission_file WHERE submission_id = #{submissionId}")
+    @Select("SELECT * FROM submission_file WHERE submission_id = #{submissionId} ORDER BY file_order")
     List<SubmissionFile> findBySubmissionId(@Param("submissionId") Integer submissionId);
 
     /**
@@ -42,9 +42,4 @@ public interface SubmissionFileMapper {
      */
     @Select("SELECT COUNT(*) FROM submission_file WHERE submission_id = #{submissionId}")
     int countBySubmissionId(@Param("submissionId") Integer submissionId);
-
-    /**
-     * 批量插入文件记录
-     */
-    int batchInsert(@Param("files") List<SubmissionFile> files);
 }

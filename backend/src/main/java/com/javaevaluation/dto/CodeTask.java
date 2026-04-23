@@ -28,9 +28,6 @@ public class CodeTask implements Serializable {
     /** 作业ID */
     private Integer homeworkId;
 
-    /** 文件路径列表 */
-    private String[] filePaths;
-
     /** 时间戳 */
     private Long timestamp;
 }

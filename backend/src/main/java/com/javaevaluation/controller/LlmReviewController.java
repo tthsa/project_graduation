@@ -18,15 +18,6 @@ public class LlmReviewController {
     private final LlmReviewService llmReviewService;
 
     /**
-     * 评审代码
-     */
-    @PostMapping("/review")
-    public Result<String> reviewCode(@RequestBody String code) {
-        String review = llmReviewService.reviewCode(code);
-        return Result.success(review);
-    }
-
-    /**
      * 提取分数
      */
     @PostMapping("/extract-score")

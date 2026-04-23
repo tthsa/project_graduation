@@ -1,58 +1,98 @@
 package com.javaevaluation.controller;
 
-import com.javaevaluation.common.ErrorCode;
-import com.javaevaluation.common.Result;
 import com.javaevaluation.entity.EvaluationResult;
+import com.javaevaluation.entity.SubmissionFile;
 import com.javaevaluation.service.CodeSubmitService;
-import com.javaevaluation.service.ResultService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/submission")
+@RequestMapping("/api/student/submission")
+@RequiredArgsConstructor
 public class SubmissionController {
 
-    @Autowired
-    private CodeSubmitService codeSubmitService;
-
-    @Autowired
-    private ResultService resultService;
+    private final CodeSubmitService codeSubmitService;
 
     /**
      * 提交作业
      */
     @PostMapping("/submit")
-    public Result<Integer> submitHomework(
+    public ResponseEntity<?> submitHomework(
             @RequestParam Integer studentId,
             @RequestParam Integer homeworkId,
-            @RequestBody List<String> filePaths) {
-        Integer submissionId = codeSubmitService.submitHomework(studentId, homeworkId, filePaths);
-        return Result.success(submissionId);
+            @RequestParam("files") MultipartFile[] files) {
+        try {
+            // 验证文件
+            if (files == null || files.length == 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", 400,
+                        "message", "请上传文件"
+                ));
+            }
+
+            // 验证文件类型
+            for (MultipartFile file : files) {
+                String filename = file.getOriginalFilename();
+                if (filename == null || !filename.endsWith(".java")) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "code", 400,
+                            "message", "只支持.java文件"
+                    ));
+                }
+            }
+
+            Integer submissionId = codeSubmitService.submitHomework(studentId, homeworkId, files);
+            return ResponseEntity.ok().body(Map.of(
+                    "code", 200,
+                    "message", "提交成功",
+                    "data", Map.of("submissionId", submissionId)
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "提交失败: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * 获取提交的文件列表
+     */
+    @GetMapping("/files/{submissionId}")
+    public ResponseEntity<?> getSubmissionFiles(@PathVariable Integer submissionId) {
+        List<SubmissionFile> files = codeSubmitService.getSubmissionFiles(submissionId);
+        return ResponseEntity.ok().body(Map.of(
+                "code", 200,
+                "data", files
+        ));
     }
 
     /**
      * 获取评测结果
      */
     @GetMapping("/result/{submissionId}")
-    public Result<EvaluationResult> getResult(@PathVariable Integer submissionId) {
-        EvaluationResult result = resultService.getResult(submissionId);
-        if (result == null) {
-            return Result.fail(ErrorCode.NOT_FOUND);
-        }
-        return Result.success(result);
+    public ResponseEntity<?> getResult(@PathVariable Integer submissionId) {
+        EvaluationResult result = codeSubmitService.getResult(submissionId);
+        return ResponseEntity.ok().body(Map.of(
+                "code", 200,
+                "data", result
+        ));
     }
 
     /**
-     * 获取评测状态
+     * 获取提交状态
      */
     @GetMapping("/status/{submissionId}")
-    public Result<Integer> getStatus(@PathVariable Integer submissionId) {
+    public ResponseEntity<?> getStatus(@PathVariable Integer submissionId) {
         Integer status = codeSubmitService.getStatus(submissionId);
-        if (status == null) {
-            return Result.fail(ErrorCode.NOT_FOUND);
-        }
-        return Result.success(status);
+        return ResponseEntity.ok().body(Map.of(
+                "code", 200,
+                "data", Map.of("status", status)
+        ));
     }
 }

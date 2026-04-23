@@ -1,6 +1,8 @@
 package com.javaevaluation.service;
 
 import com.javaevaluation.dto.ExecutionResult;
+import com.javaevaluation.entity.SubmissionFile;
+import com.javaevaluation.mapper.SubmissionFileMapper;
 import com.javaevaluation.properties.SiliconFlowProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +12,10 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * LLM代码评审服务
  */
@@ -18,123 +24,195 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class LlmReviewService {
 
+    private final RestTemplate restTemplate;
+    private final SubmissionFileMapper submissionFileMapper;
     private final SiliconFlowProperties siliconFlowProperties;
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 评审代码（字符串版本）
+     * 评审代码
+     * @param submissionId 提交ID
+     * @param result 执行结果
+     * @return 评审结果
      */
-    public String reviewCode(String code) {
+    public String reviewCode(Integer submissionId, ExecutionResult result) {
         try {
-            String prompt = buildPrompt(code);
-            return callSiliconFlowAPI(prompt);
+            // 1. 从数据库读取代码内容
+            List<SubmissionFile> files = submissionFileMapper.findBySubmissionId(submissionId);
+
+            if (files == null || files.isEmpty()) {
+                return "未找到提交的代码文件";
+            }
+
+            // 2. 构建代码内容字符串
+            StringBuilder codeContent = new StringBuilder();
+            for (SubmissionFile file : files) {
+                codeContent.append("=== 文件: ").append(file.getFileName()).append(" ===\n");
+                codeContent.append(file.getFileContent()).append("\n\n");
+            }
+
+            // 3. 构建评审内容
+            String content = buildReviewContent(codeContent.toString(), result);
+
+            // 4. 调用LLM评审
+            return callLlmApi(content);
+
         } catch (Exception e) {
-            log.error("LLM评审失败: {}", e.getMessage());
-            return "评审失败: " + e.getMessage();
+            log.error("LLM评审失败: {}", e.getMessage(), e);
+            return "代码评审失败: " + e.getMessage();
         }
     }
 
     /**
-     * 评审代码（ExecutionResult版本）
+     * 构建评审内容
      */
-    public String reviewCode(ExecutionResult result) {
-        String content = buildReviewContent(result);
-        return reviewCode(content);
+    private String buildReviewContent(String codeContent, ExecutionResult result) {
+        StringBuilder prompt = new StringBuilder();
+
+        prompt.append("请对以下Java代码进行评审，从代码质量、逻辑正确性、可读性等方面给出评价和建议。\n\n");
+
+        prompt.append("## 提交的代码\n");
+        prompt.append("```\n");
+        prompt.append(codeContent);
+        prompt.append("```\n\n");
+
+        prompt.append("## 测试结果\n");
+        prompt.append("- 编译状态: ").append(result.getCompileStatus()).append("\n");
+        prompt.append("- 测试通过: ").append(result.getTestPassed()).append("/").append(result.getTestTotal()).append("\n");
+        prompt.append("- 得分: ").append(result.getTestScore()).append("分\n");
+
+        if (result.getErrorMessage() != null && !result.getErrorMessage().isEmpty()) {
+            prompt.append("- 错误信息: ").append(result.getErrorMessage()).append("\n");
+        }
+
+        prompt.append("\n## 请按以下格式给出评审意见\n");
+        prompt.append("1. 代码质量评价（满分10分）: X分\n");
+        prompt.append("2. 代码优点\n");
+        prompt.append("3. 代码问题和改进建议\n");
+        prompt.append("4. 总体评价\n");
+
+        return prompt.toString();
+    }
+
+    /**
+     * 调用LLM API
+     */
+    private String callLlmApi(String content) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + siliconFlowProperties.getApiKey());
+
+            // 构建请求体（适配硅基流动API格式）
+            String requestBody = String.format(
+                    "{\"model\":\"%s\",\"messages\":[{\"role\":\"user\",\"content\":\"%s\"}]}",
+                    siliconFlowProperties.getModel(),
+                    escapeJson(content)
+            );
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+            // 使用硅基流动的chat/completions接口
+            String apiUrl = siliconFlowProperties.getBaseUrl() + "/v1/chat/completions";
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return parseLlmResponse(response.getBody());
+            }
+
+            return "LLM调用失败: " + response.getStatusCode();
+
+        } catch (Exception e) {
+            log.error("调用LLM API失败: {}", e.getMessage(), e);
+            return "LLM调用异常: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 解析LLM响应
+     */
+    private String parseLlmResponse(String responseBody) {
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+
+            // 适配OpenAI格式（硅基流动兼容）
+            if (root.has("choices") && root.get("choices").isArray()) {
+                JsonNode choices = root.get("choices");
+                if (choices.size() > 0) {
+                    JsonNode message = choices.get(0).get("message");
+                    if (message != null && message.has("content")) {
+                        return message.get("content").asText();
+                    }
+                }
+            }
+
+            // 适配其他格式
+            if (root.has("output")) {
+                return root.get("output").asText();
+            }
+
+            if (root.has("result")) {
+                return root.get("result").asText();
+            }
+
+            return responseBody;
+        } catch (Exception e) {
+            log.warn("解析LLM响应失败: {}", e.getMessage());
+            return responseBody;
+        }
     }
 
     /**
      * 从评审结果中提取分数
      */
     public Integer extractScore(String review) {
+        if (review == null || review.isEmpty()) {
+            return 0;
+        }
+
         try {
-            if (review.contains("分数") || review.contains("得分")) {
-                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)\\s*分");
-                java.util.regex.Matcher matcher = pattern.matcher(review);
-                if (matcher.find()) {
-                    return Integer.parseInt(matcher.group(1));
-                }
+            // 尝试匹配 "代码质量评价（满分10分）: 8分" 格式
+            Pattern pattern1 = Pattern.compile("代码质量评价[^:]*:\\s*(\\d+)\\s*分");
+            Matcher matcher1 = pattern1.matcher(review);
+            if (matcher1.find()) {
+                return Integer.parseInt(matcher1.group(1));
             }
+
+            // 尝试匹配 "X分" 格式（第一个数字）
+            Pattern pattern2 = Pattern.compile("(\\d+)\\s*分");
+            Matcher matcher2 = pattern2.matcher(review);
+            if (matcher2.find()) {
+                return Integer.parseInt(matcher2.group(1));
+            }
+
+            // 尝试匹配 "X/10" 格式
+            Pattern pattern3 = Pattern.compile("(\\d+)\\s*/\\s*10");
+            Matcher matcher3 = pattern3.matcher(review);
+            if (matcher3.find()) {
+                return Integer.parseInt(matcher3.group(1));
+            }
+
         } catch (Exception e) {
             log.warn("提取分数失败: {}", e.getMessage());
         }
+
         return 0;
     }
 
     /**
-     * 构建评审内容
+     * 转义JSON字符串
      */
-    private String buildReviewContent(ExecutionResult result) {
-        StringBuilder content = new StringBuilder();
-        content.append("编译状态：").append(result.getCompileStatus()).append("\n");
-
-        if (result.getTestPassed() != null && result.getTestTotal() != null) {
-            content.append("测试通过：").append(result.getTestPassed())
-                    .append("/").append(result.getTestTotal()).append("\n");
-        }
-
-        if (result.getOutput() != null) {
-            content.append("输出：\n").append(result.getOutput()).append("\n");
-        }
-
-        if (result.getErrorMessage() != null) {
-            content.append("错误：\n").append(result.getErrorMessage()).append("\n");
-        }
-
-        return content.toString();
-    }
-
-    /**
-     * 构建提示词
-     */
-    private String buildPrompt(String code) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("你是一位专业的Java代码评审专家。请评审以下代码：\n\n");
-        prompt.append("```\n");
-        prompt.append(code);
-        prompt.append("\n```\n\n");
-        prompt.append("请从以下几个方面进行评审：\n");
-        prompt.append("1. 代码质量和可读性\n");
-        prompt.append("2. 潜在的Bug或问题\n");
-        prompt.append("3. 性能优化建议\n");
-        prompt.append("4. 最佳实践建议\n");
-        prompt.append("5. 安全性问题\n\n");
-        prompt.append("请用中文回答，简洁明了。最后请给出一个0-100的分数，格式为：总分：XX分");
-        return prompt.toString();
-    }
-
-    /**
-     * 调用 SiliconFlow API
-     */
-    private String callSiliconFlowAPI(String prompt) throws Exception {
-        String requestBody = String.format(
-                "{\"model\":\"%s\",\"messages\":[{\"role\":\"user\",\"content\":%s}],\"max_tokens\":2000}",
-                siliconFlowProperties.getModel(),
-                objectMapper.writeValueAsString(prompt)
-        );
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(siliconFlowProperties.getApiKey());
-
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-
-        String url = siliconFlowProperties.getBaseUrl() + "/v1/chat/completions";
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                String.class
-        );
-
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode choices = root.path("choices");
-            if (choices.isArray() && choices.size() > 0) {
-                return choices.get(0).path("message").path("content").asText();
-            }
-        }
-
-        throw new RuntimeException("API调用失败: " + response.getStatusCode());
+    private String escapeJson(String str) {
+        return str.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

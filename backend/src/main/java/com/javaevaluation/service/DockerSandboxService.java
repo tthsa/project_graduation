@@ -8,7 +8,9 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
 import com.javaevaluation.dto.CodeTask;
 import com.javaevaluation.dto.ExecutionResult;
+import com.javaevaluation.entity.SubmissionFile;
 import com.javaevaluation.entity.TestCase;
+import com.javaevaluation.mapper.SubmissionFileMapper;
 import com.javaevaluation.mapper.TestCaseMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class DockerSandboxService {
 
     private final DockerClient dockerClient;
     private final TestCaseMapper testCaseMapper;
+    private final SubmissionFileMapper submissionFileMapper;
 
     @Value("${docker.image:openjdk:11}")
     private String dockerImage;
@@ -46,9 +49,6 @@ public class DockerSandboxService {
     @Value("${docker.memory:256m}")
     private String memoryLimit;
 
-    @Value("${file.upload-path:./uploads}")
-    private String uploadPath;
-
     /**
      * 执行评测任务
      */
@@ -57,11 +57,11 @@ public class DockerSandboxService {
         result.setTaskId(task.getTaskId());
 
         try {
-            // 1. 读取源代码文件
-            String sourceCode = readSourceCode(task.getFilePaths());
-            if (sourceCode == null) {
+            // 1. 从数据库读取代码文件
+            List<SubmissionFile> files = submissionFileMapper.findBySubmissionId(task.getSubmissionId());
+            if (files == null || files.isEmpty()) {
                 result.setCompileStatus("FAILED");
-                result.setErrorMessage("无法读取源代码文件");
+                result.setErrorMessage("未找到提交的代码文件");
                 return result;
             }
 
@@ -74,7 +74,7 @@ public class DockerSandboxService {
             }
 
             // 3. 在Docker中编译和执行
-            return executeInDocker(task, sourceCode, testCases);
+            return executeInDocker(task, files, testCases);
 
         } catch (Exception e) {
             log.error("执行任务失败: taskId={}, error={}", task.getTaskId(), e.getMessage(), e);
@@ -85,33 +85,9 @@ public class DockerSandboxService {
     }
 
     /**
-     * 读取源代码
-     */
-    private String readSourceCode(String[] filePaths) {
-        if (filePaths == null || filePaths.length == 0) {
-            return null;
-        }
-
-        StringBuilder code = new StringBuilder();
-        for (String filePath : filePaths) {
-            try {
-                Path path = Paths.get(uploadPath, filePath);
-                if (Files.exists(path)) {
-                    String content = Files.readString(path, StandardCharsets.UTF_8);
-                    code.append("// File: ").append(filePath).append("\n");
-                    code.append(content).append("\n\n");
-                }
-            } catch (Exception e) {
-                log.error("读取文件失败: {}", filePath, e);
-            }
-        }
-        return code.length() > 0 ? code.toString() : null;
-    }
-
-    /**
      * 在Docker中执行
      */
-    private ExecutionResult executeInDocker(CodeTask task, String sourceCode, List<TestCase> testCases) {
+    private ExecutionResult executeInDocker(CodeTask task, List<SubmissionFile> files, List<TestCase> testCases) {
         ExecutionResult result = new ExecutionResult();
         result.setTaskId(task.getTaskId());
 
@@ -125,10 +101,23 @@ public class DockerSandboxService {
                 throw new RuntimeException("无法创建工作目录");
             }
 
-            // 2. 写入源代码文件
-            String className = extractClassName(sourceCode);
-            File sourceFile = new File(localWorkDir, className + ".java");
-            Files.writeString(sourceFile.toPath(), sourceCode, StandardCharsets.UTF_8);
+            // 2. 写入所有源代码文件
+            String mainClassName = null;
+            for (SubmissionFile file : files) {
+                File sourceFile = new File(localWorkDir, file.getFileName());
+                Files.writeString(sourceFile.toPath(), file.getFileContent(), StandardCharsets.UTF_8);
+
+                // 查找包含main方法的类
+                if (file.getFileContent().contains("public static void main")) {
+                    mainClassName = extractClassName(file.getFileContent());
+                }
+            }
+
+            if (mainClassName == null) {
+                result.setCompileStatus("FAILED");
+                result.setErrorMessage("未找到包含main方法的类");
+                return result;
+            }
 
             // 3. 创建Docker容器
             CreateContainerResponse container = dockerClient.createContainerCmd(dockerImage)
@@ -142,8 +131,8 @@ public class DockerSandboxService {
             containerId = container.getId();
             dockerClient.startContainerCmd(containerId).exec();
 
-            // 4. 编译代码
-            ExecutionResult compileResult = compileInContainer(containerId, className);
+            // 4. 编译所有代码
+            ExecutionResult compileResult = compileAllInContainer(containerId, files);
             if (!"SUCCESS".equals(compileResult.getCompileStatus())) {
                 return compileResult;
             }
@@ -154,7 +143,7 @@ public class DockerSandboxService {
             List<String> testResults = new ArrayList<>();
 
             for (TestCase testCase : testCases) {
-                TestResult testResult = runTestCase(containerId, className, testCase);
+                TestResult testResult = runTestCase(containerId, mainClassName, testCase);
                 testResults.add(String.format("测试用例[%s]: %s",
                         testCase.getName(),
                         testResult.passed ? "通过" : "失败"));
@@ -192,15 +181,21 @@ public class DockerSandboxService {
     }
 
     /**
-     * 在容器中编译代码
+     * 在容器中编译所有代码
      */
-    private ExecutionResult compileInContainer(String containerId, String className) {
+    private ExecutionResult compileAllInContainer(String containerId, List<SubmissionFile> files) {
         ExecutionResult result = new ExecutionResult();
 
         try {
-            // 执行javac编译
+            // 构建javac命令，编译所有.java文件
+            List<String> cmd = new ArrayList<>();
+            cmd.add("javac");
+            for (SubmissionFile file : files) {
+                cmd.add(file.getFileName());
+            }
+
             ExecCreateCmdResponse execCreate = dockerClient.execCreateCmd(containerId)
-                    .withCmd("javac", className + ".java")
+                    .withCmd(cmd.toArray(new String[0]))
                     .withAttachStdout(true)
                     .withAttachStderr(true)
                     .exec();

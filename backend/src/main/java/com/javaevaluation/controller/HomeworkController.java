@@ -15,7 +15,7 @@ import java.util.List;
  * 作业控制器
  */
 @RestController
-@RequestMapping("/api/homework")
+@RequestMapping("/api/teacher/homework")
 @RequiredArgsConstructor
 public class HomeworkController {
 
