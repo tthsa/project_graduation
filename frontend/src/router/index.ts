@@ -56,6 +56,12 @@ const routes = [
         component: () => import('@/views/teacher/TestCaseView.vue'),
         meta: { title: '测试用例管理' },
       },
+      {
+        path: 'homework/:homeworkId/review',
+        name: 'TeacherReview',
+        component: () => import('@/views/teacher/ReviewView.vue'),
+        meta: { title: '评审结果' },
+      },
     ],
   },
   {

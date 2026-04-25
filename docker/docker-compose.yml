@@ -83,7 +83,7 @@ services:
       - SPRING_RABBITMQ_USERNAME=admin
       - SPRING_RABBITMQ_PASSWORD=patient210037
       - SPRING_REDIS_HOST=redis
-      - SILICONFLOW_API_KEY=sk-okpdxfwbttwgrmjbjjycpljgsycroeihfreuwaarqldsodfs
+      - SILICONFLOW_API_KEY=sk-nykpvatykvuhvszpjbhykdemokruzhilmqcqhreadincphvn
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - upload_data:/app/uploads

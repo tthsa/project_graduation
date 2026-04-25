@@ -20,9 +20,10 @@
             {{ formatTime(row.deadline) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="250">
+        <el-table-column label="操作" fixed="right" width="320">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)"> 编辑 </el-button>
+            <el-button type="success" size="small" @click="handleReview(row)"> 评审结果 </el-button>
             <el-button type="warning" size="small" @click="handleTestCases(row)">
               测试用例
             </el-button>
@@ -202,6 +203,10 @@ const handleDelete = async (row: Homework) => {
 
 const handleTestCases = (row: Homework) => {
   router.push(`/teacher/homework/${row.id}/testcases`)
+}
+
+const handleReview = (row: Homework) => {
+  router.push(`/teacher/homework/${row.id}/review`)
 }
 
 fetchHomeworkList()

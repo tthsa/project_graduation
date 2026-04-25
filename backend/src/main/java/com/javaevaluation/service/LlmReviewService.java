@@ -99,21 +99,29 @@ public class LlmReviewService {
      */
     private String callLlmApi(String content) {
         try {
+            // 调试日志
+            log.info("=== LLM API 调试信息 ===");
+            log.info("API Key: {}", siliconFlowProperties.getApiKey());
+            log.info("Base URL: {}", siliconFlowProperties.getBaseUrl());
+            log.info("Model: {}", siliconFlowProperties.getModel());
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Authorization", "Bearer " + siliconFlowProperties.getApiKey());
 
-            // 构建请求体（适配硅基流动API格式）
+            // 构建请求体
             String requestBody = String.format(
                     "{\"model\":\"%s\",\"messages\":[{\"role\":\"user\",\"content\":\"%s\"}]}",
                     siliconFlowProperties.getModel(),
                     escapeJson(content)
             );
 
+            log.info("Request Body: {}", requestBody);
+
             HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
 
-            // 使用硅基流动的chat/completions接口
             String apiUrl = siliconFlowProperties.getBaseUrl() + "/v1/chat/completions";
+            log.info("API URL: {}", apiUrl);
 
             ResponseEntity<String> response = restTemplate.exchange(
                     apiUrl,
