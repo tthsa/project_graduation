@@ -82,3 +82,8 @@ logging:
     root: INFO
     com.javaevaluation: DEBUG
     org.springframework: INFO
+
+# MyBatis 配置
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
