@@ -18,8 +18,8 @@ public class HomeworkWithStatus {
     private Homework homework;
 
     /**
-     * 提交状态
-     * 0=未提交, 1=待评测, 2=评测中, 3=已完成
+     * 提交状态(与 Submission.status 一致)
+     * null=未提交, 0=待评测, 1=评测中, 2=已完成, 3=失败
      */
     private Integer submitStatus;
 

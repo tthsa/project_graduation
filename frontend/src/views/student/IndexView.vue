@@ -12,50 +12,38 @@
 
     <el-row :gutter="20" style="margin-top: 20px">
       <!-- 统计卡片 -->
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #409eff">
             <el-icon size="24"><Document /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">已选课题</div>
+            <div class="stat-value">{{ stats.pendingCount }}</div>
+            <div class="stat-label">待提交作业</div>
           </div>
         </el-card>
       </el-col>
 
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #67c23a">
+            <el-icon size="24"><CircleCheck /></el-icon>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.completedCount }}</div>
+            <div class="stat-label">已批改作业</div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="8">
+        <el-card class="stat-card">
+          <div class="stat-icon" style="background-color: #e6a23c">
             <el-icon size="24"><TrendCharts /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0%</div>
-            <div class="stat-label">完成进度</div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #e6a23c">
-            <el-icon size="24"><Folder /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">已交文档</div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #f56c6c">
-            <el-icon size="24"><Bell /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">待办事项</div>
+            <div class="stat-value">{{ stats.averageScore }}</div>
+            <div class="stat-label">平均分</div>
           </div>
         </el-card>
       </el-col>
@@ -69,29 +57,37 @@
             <span>快捷操作</span>
           </template>
           <div class="quick-actions">
-            <el-button type="primary" @click="$router.push('/student/topic')">
+            <el-button type="primary" @click="$router.push('/student/homework')">
               <el-icon><Document /></el-icon>
-              选择课题
+              作业列表
             </el-button>
-            <el-button type="success" @click="$router.push('/student/progress')">
-              <el-icon><TrendCharts /></el-icon>
-              提交进度
-            </el-button>
-            <el-button type="warning" @click="$router.push('/student/document')">
+            <el-button type="success" @click="$router.push('/student/submissions')">
               <el-icon><Folder /></el-icon>
-              上传文档
+              我的提交
             </el-button>
           </div>
         </el-card>
       </el-col>
 
-      <!-- 通知公告 -->
+      <!-- 待提交作业 -->
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>通知公告</span>
+            <span>待提交作业</span>
           </template>
-          <el-empty description="暂无通知" />
+          <el-table :data="pendingHomework" v-if="pendingHomework.length > 0">
+            <el-table-column label="标题">
+              <template #default="{ row }">
+                {{ row.homework.title }}
+              </template>
+            </el-table-column>
+            <el-table-column label="截止时间" width="180">
+              <template #default="{ row }">
+                {{ formatTime(row.homework.deadline) }}
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else description="没有待提交的作业" />
         </el-card>
       </el-col>
     </el-row>
@@ -99,11 +95,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Document, TrendCharts, Folder, Bell } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Document, TrendCharts, Folder, CircleCheck } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getHomeworkListForStudent, type HomeworkWithStatus } from '@/api/homework'
 
 const userStore = useUserStore()
+
+const stats = reactive({
+  pendingCount: 0,
+  completedCount: 0,
+  averageScore: '-' as string | number,
+})
+const pendingHomework = ref<HomeworkWithStatus[]>([])
 
 const currentDate = computed(() => {
   const now = new Date()
@@ -113,6 +117,41 @@ const currentDate = computed(() => {
     day: 'numeric',
     weekday: 'long',
   })
+})
+
+const formatTime = (time: string) => {
+  if (!time) return '-'
+  return time.replace('T', ' ')
+}
+
+const fetchStats = async () => {
+  try {
+    const list = await getHomeworkListForStudent()
+    if (!list) return
+
+    const pending = list.filter((item) => item.submitStatus == null && !item.expired)
+    const completed = list.filter((item) => item.submitStatus === 2)
+    const scores = list
+      .map((item) => item.score)
+      .filter((s): s is number => typeof s === 'number')
+
+    stats.pendingCount = pending.length
+    stats.completedCount = completed.length
+    if (scores.length > 0) {
+      const avg = scores.reduce((sum, n) => sum + n, 0) / scores.length
+      stats.averageScore = Math.round(avg * 10) / 10
+    } else {
+      stats.averageScore = '-'
+    }
+
+    pendingHomework.value = pending.slice(0, 5)
+  } catch {
+    // 错误已处理
+  }
+}
+
+onMounted(() => {
+  fetchStats()
 })
 </script>
 

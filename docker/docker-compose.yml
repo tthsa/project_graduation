@@ -7,8 +7,8 @@ services:
     container_name: java-eval-postgres
     environment:
       POSTGRES_DB: java_evaluation
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: patient210037
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -28,8 +28,8 @@ services:
     image: rabbitmq:3.12-management-alpine
     container_name: java-eval-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: patient210037
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -77,13 +77,14 @@ services:
       - SPRING_DATASOURCE_HOST=postgres
       - SPRING_DATASOURCE_PORT=5432
       - SPRING_DATASOURCE_DB=java_evaluation
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=patient210037
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-admin}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
       - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=admin
-      - SPRING_RABBITMQ_PASSWORD=patient210037
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-admin}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
       - SPRING_REDIS_HOST=redis
-      - SILICONFLOW_API_KEY=sk-nykpvatykvuhvszpjbhykdemokruzhilmqcqhreadincphvn
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - upload_data:/app/uploads

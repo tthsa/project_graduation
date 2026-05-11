@@ -14,6 +14,11 @@
       <el-table :data="homeworkList" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" width="200" />
+        <el-table-column label="所属课程" width="160">
+          <template #default="{ row }">
+            {{ courseNameMap[row.courseId] || `课程#${row.courseId}` }}
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" show-overflow-tooltip />
         <el-table-column prop="deadline" label="截止时间" width="180">
           <template #default="{ row }">
@@ -40,6 +45,21 @@
       @close="handleDialogClose"
     >
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="80px">
+        <el-form-item label="所属课程" prop="courseId">
+          <el-select
+            v-model="formData.courseId"
+            placeholder="请选择课程"
+            style="width: 100%"
+            :disabled="isEdit"
+          >
+            <el-option
+              v-for="course in courseList"
+              :key="course.id"
+              :label="course.name"
+              :value="course.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="标题" prop="title">
           <el-input v-model="formData.title" placeholder="请输入作业标题" />
         </el-form-item>
@@ -83,19 +103,27 @@ import {
   type AddHomeworkParams,
   type UpdateHomeworkParams,
 } from '@/api/homework'
+import { getCourseList, type Course } from '@/api/course'
 
 const router = useRouter()
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const homeworkList = ref<Homework[]>([])
+const courseList = ref<Course[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref()
 
-const formData = reactive({
+const formData = reactive<{
+  id: number
+  courseId: number | null
+  title: string
+  description: string
+  deadline: string
+}>({
   id: 0,
-  courseId: 1,
+  courseId: null,
   title: '',
   description: '',
   deadline: '',
@@ -103,7 +131,16 @@ const formData = reactive({
 
 const dialogTitle = computed(() => (isEdit.value ? '编辑作业' : '发布作业'))
 
+const courseNameMap = computed<Record<number, string>>(() => {
+  const map: Record<number, string> = {}
+  for (const c of courseList.value) {
+    map[c.id] = c.name
+  }
+  return map
+})
+
 const formRules = {
+  courseId: [{ required: true, message: '请选择所属课程', trigger: 'change' }],
   title: [{ required: true, message: '请输入作业标题', trigger: 'blur' }],
   description: [{ required: true, message: '请输入作业描述', trigger: 'blur' }],
   deadline: [{ required: true, message: '请选择截止时间', trigger: 'change' }],
@@ -112,6 +149,15 @@ const formRules = {
 const formatTime = (time: string) => {
   if (!time) return '-'
   return time.replace('T', ' ')
+}
+
+const fetchCourseList = async () => {
+  try {
+    const res = await getCourseList()
+    courseList.value = res || []
+  } catch {
+    // 错误已处理
+  }
 }
 
 const fetchHomeworkList = async () => {
@@ -128,13 +174,17 @@ const fetchHomeworkList = async () => {
 
 const handleAdd = () => {
   isEdit.value = false
+  if (courseList.value.length === 0) {
+    ElMessage.warning('请先在「我的课程」中创建一门课程')
+    return
+  }
   dialogVisible.value = true
 }
 
 const handleEdit = (row: Homework) => {
   isEdit.value = true
   formData.id = row.id
-  formData.courseId = row.courseId || 1
+  formData.courseId = row.courseId
   formData.title = row.title
   formData.description = row.description
   formData.deadline = row.deadline ? row.deadline.replace('T', ' ').substring(0, 19) : ''
@@ -150,7 +200,7 @@ const handleSubmit = async () => {
     if (isEdit.value) {
       const params: UpdateHomeworkParams = {
         id: formData.id,
-        courseId: formData.courseId,
+        courseId: formData.courseId!,
         title: formData.title,
         description: formData.description,
         deadline: formData.deadline,
@@ -160,7 +210,7 @@ const handleSubmit = async () => {
       ElMessage.success('更新成功')
     } else {
       const params: AddHomeworkParams = {
-        courseId: formData.courseId,
+        courseId: formData.courseId!,
         title: formData.title,
         description: formData.description,
         deadline: formData.deadline,
@@ -181,6 +231,7 @@ const handleSubmit = async () => {
 const handleDialogClose = () => {
   formRef.value?.resetFields()
   formData.id = 0
+  formData.courseId = null
   formData.title = ''
   formData.description = ''
   formData.deadline = ''
@@ -209,6 +260,7 @@ const handleReview = (row: Homework) => {
   router.push(`/teacher/homework/${row.id}/review`)
 }
 
+fetchCourseList()
 fetchHomeworkList()
 </script>
 

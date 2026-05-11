@@ -28,4 +28,7 @@ public interface HomeworkMapper {
 
     @Delete("DELETE FROM homework WHERE id = #{id}")
     int delete(Integer id);
+
+    @Select("SELECT COUNT(*) FROM homework h JOIN course c ON h.course_id = c.id WHERE c.teacher_id = #{teacherId}")
+    int countByTeacherId(Integer teacherId);
 }

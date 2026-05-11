@@ -3,6 +3,7 @@ package com.javaevaluation.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -86,9 +87,21 @@ public class SecurityConfig {
                         ).permitAll()
                         // 管理员接口
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // 教师接口
+                        // 报告接口(教师/管理员可看)
+                        .requestMatchers("/api/report/**").hasAnyRole("ADMIN", "TEACHER")
+                        // 教师 CRUD(仅管理员可管理教师账户)
+                        .requestMatchers(HttpMethod.POST, "/api/teacher/create").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/teacher/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/teacher/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/teacher/list", "/api/teacher/*").hasRole("ADMIN")
+                        // 教师业务接口
                         .requestMatchers("/api/teacher/**").hasAnyRole("ADMIN", "TEACHER")
-                        // 学生接口
+                        // 学生 CRUD(仅管理员可管理学生账户)
+                        .requestMatchers(HttpMethod.POST, "/api/student/create").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/student/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/student/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/student/list", "/api/student/class/*", "/api/student/*").hasRole("ADMIN")
+                        // 学生业务接口
                         .requestMatchers("/api/student/**").hasAnyRole("ADMIN", "TEACHER", "STUDENT")
                         // 其他请求需要认证
                         .anyRequest().authenticated()

@@ -1,5 +1,6 @@
 package com.javaevaluation.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -7,6 +8,7 @@ import java.time.LocalDateTime;
 public class Teacher {
     private Integer id;
     private String teacherNo;
+    @JsonIgnore
     private String password;
     private String name;
     private String email;

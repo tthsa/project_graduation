@@ -33,7 +33,7 @@
               @click="handleSubmit(row)"
               :disabled="row.expired || row.submitStatus === 1"
             >
-              提交作业
+              {{ row.submitStatus == null ? '提交作业' : '重新提交' }}
             </el-button>
           </template>
         </el-table-column>
@@ -85,9 +85,6 @@ import { ElMessage } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
 import { getHomeworkListForStudent, type HomeworkWithStatus } from '@/api/homework'
 import { submitHomework } from '@/api/submission'
-import { useUserStore } from '@/stores/user'
-
-const userStore = useUserStore()
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -101,7 +98,7 @@ const formatTime = (time: string) => {
   return time.replace('T', ' ')
 }
 
-const getStatusType = (status: number) => {
+const getStatusType = (status: number | null | undefined) => {
   switch (status) {
     case 0:
       return 'info'
@@ -109,30 +106,32 @@ const getStatusType = (status: number) => {
       return 'warning'
     case 2:
       return 'success'
+    case 3:
+      return 'danger'
     default:
       return 'info'
   }
 }
 
-const getStatusText = (status: number) => {
+const getStatusText = (status: number | null | undefined) => {
   switch (status) {
     case 0:
-      return '未提交'
+      return '待评测'
     case 1:
-      return '已提交'
+      return '评测中'
     case 2:
-      return '已批改'
+      return '已完成'
+    case 3:
+      return '失败'
     default:
-      return '未知'
+      return '未提交'
   }
 }
 
 const fetchHomeworkList = async () => {
   loading.value = true
   try {
-    const studentId = userStore.userInfo?.userId
-    if (!studentId) return
-    const res = await getHomeworkListForStudent(studentId)
+    const res = await getHomeworkListForStudent()
     homeworkList.value = res || []
   } catch {
     // 错误已处理
@@ -158,7 +157,6 @@ const handleConfirmSubmit = async () => {
     const files = fileList.value.map((item) => item.raw as File)
     await submitHomework({
       homeworkId: currentHomework.value!.homework.id,
-      studentId: userStore.userInfo!.userId,
       files,
     })
     ElMessage.success('提交成功')

@@ -25,6 +25,18 @@ const routes = [
         component: () => import('@/views/student/HomeworkView.vue'),
         meta: { title: '作业列表' },
       },
+      {
+        path: 'submissions',
+        name: 'StudentSubmissions',
+        component: () => import('@/views/student/SubmissionsView.vue'),
+        meta: { title: '我的提交' },
+      },
+      {
+        path: 'submission/:id',
+        name: 'StudentSubmissionDetail',
+        component: () => import('@/views/student/SubmissionDetailView.vue'),
+        meta: { title: '提交详情' },
+      },
     ],
   },
   {
@@ -43,6 +55,12 @@ const routes = [
         name: 'TeacherStudent',
         component: () => import('@/views/teacher/StudentView.vue'),
         meta: { title: '学生管理' },
+      },
+      {
+        path: 'course',
+        name: 'TeacherCourse',
+        component: () => import('@/views/teacher/CourseView.vue'),
+        meta: { title: '我的课程' },
       },
       {
         path: 'homework',

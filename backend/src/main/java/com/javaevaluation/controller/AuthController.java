@@ -105,6 +105,14 @@ public class AuthController {
     }
 
     /**
+     * 登出(JWT 无状态,客户端清 token 即可)
+     */
+    @PostMapping("/logout")
+    public Result<Void> logout() {
+        return Result.success(null);
+    }
+
+    /**
      * 获取当前用户信息
      */
     @GetMapping("/me")

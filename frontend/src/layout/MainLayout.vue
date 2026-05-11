@@ -114,12 +114,14 @@ const setMenuByUserType = () => {
     menuItems.value = [
       { index: '/student', title: '首页', icon: 'HomeFilled' },
       { index: '/student/homework', title: '作业列表', icon: 'Document' },
+      { index: '/student/submissions', title: '我的提交', icon: 'Document' },
     ]
   } else if (userType === 'teacher') {
     menuItems.value = [
       { index: '/teacher', title: '首页', icon: 'HomeFilled' },
-      { index: '/teacher/student', title: '学生管理', icon: 'User' },
+      { index: '/teacher/course', title: '我的课程', icon: 'Document' },
       { index: '/teacher/homework', title: '作业管理', icon: 'Document' },
+      { index: '/teacher/student', title: '学生管理', icon: 'User' },
     ]
   } else if (userType === 'admin') {
     menuItems.value = [

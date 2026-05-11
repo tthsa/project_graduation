@@ -1,13 +1,18 @@
 package com.javaevaluation.controller;
 
+import com.javaevaluation.common.ErrorCode;
+import com.javaevaluation.common.Result;
 import com.javaevaluation.entity.EvaluationResult;
+import com.javaevaluation.entity.Submission;
 import com.javaevaluation.entity.SubmissionFile;
+import com.javaevaluation.mapper.SubmissionMapper;
+import com.javaevaluation.security.JwtUtils;
 import com.javaevaluation.service.CodeSubmitService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,82 +22,159 @@ import java.util.Map;
 public class SubmissionController {
 
     private final CodeSubmitService codeSubmitService;
+    private final SubmissionMapper submissionMapper;
+    private final JwtUtils jwtUtils;
 
     /**
      * 提交作业
      */
     @PostMapping("/submit")
-    public ResponseEntity<?> submitHomework(
-            @RequestParam(name = "studentId") Integer studentId,
+    public Result<Map<String, Integer>> submitHomework(
             @RequestParam(name = "homeworkId") Integer homeworkId,
-            @RequestParam(name = "files") MultipartFile[] files) {
+            @RequestParam(name = "files") MultipartFile[] files,
+            @RequestHeader("Authorization") String authHeader) {
+        Integer studentId = currentUserId(authHeader);
+        if (studentId == null) {
+            return Result.fail(ErrorCode.TOKEN_INVALID);
+        }
+        if (files == null || files.length == 0) {
+            return Result.fail(ErrorCode.BAD_REQUEST, "请上传文件");
+        }
+
+        for (MultipartFile file : files) {
+            String filename = file.getOriginalFilename();
+            if (filename == null || filename.isBlank()) {
+                return Result.fail(ErrorCode.BAD_REQUEST, "文件名不能为空");
+            }
+            if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+                return Result.fail(ErrorCode.BAD_REQUEST, "文件名非法");
+            }
+            if (!filename.endsWith(".java")) {
+                return Result.fail(ErrorCode.BAD_REQUEST, "只支持 .java 文件");
+            }
+        }
+
         try {
-            // 验证文件
-            if (files == null || files.length == 0) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "code", 400,
-                        "message", "请上传文件"
-                ));
-            }
-
-            // 验证文件类型
-            for (MultipartFile file : files) {
-                String filename = file.getOriginalFilename();
-                if (filename == null || !filename.endsWith(".java")) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                            "code", 400,
-                            "message", "只支持.java文件"
-                    ));
-                }
-            }
-
             Integer submissionId = codeSubmitService.submitHomework(studentId, homeworkId, files);
-            return ResponseEntity.ok().body(Map.of(
-                    "code", 200,
-                    "message", "提交成功",
-                    "data", Map.of("submissionId", submissionId)
-            ));
+            Map<String, Integer> data = new HashMap<>();
+            data.put("submissionId", submissionId);
+            return Result.success(data);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "code", 400,
-                    "message", "提交失败: " + e.getMessage()
-            ));
+            return Result.fail(ErrorCode.SUBMIT_FAILED, "提交失败: " + e.getMessage());
         }
     }
 
     /**
+     * 获取当前学生的所有提交记录
+     */
+    @GetMapping("/list")
+    public Result<List<Submission>> listMySubmissions(
+            @RequestHeader("Authorization") String authHeader) {
+        Integer studentId = currentUserId(authHeader);
+        if (studentId == null) {
+            return Result.fail(ErrorCode.TOKEN_INVALID);
+        }
+        return Result.success(submissionMapper.findByStudentId(studentId));
+    }
+
+    /**
+     * 获取提交详情（仅本人可见）
+     */
+    @GetMapping("/detail/{submissionId}")
+    public Result<Submission> getMySubmissionDetail(
+            @PathVariable Integer submissionId,
+            @RequestHeader("Authorization") String authHeader) {
+        Integer studentId = currentUserId(authHeader);
+        if (studentId == null) {
+            return Result.fail(ErrorCode.TOKEN_INVALID);
+        }
+        Submission submission = submissionMapper.findById(submissionId);
+        if (submission == null) {
+            return Result.fail(ErrorCode.NOT_FOUND);
+        }
+        if (!studentId.equals(submission.getStudentId())) {
+            return Result.fail(ErrorCode.FORBIDDEN);
+        }
+        return Result.success(submission);
+    }
+
+    /**
      * 获取提交的文件列表
+     * 学生只能看自己的;教师/管理员可看任意
      */
     @GetMapping("/files/{submissionId}")
-    public ResponseEntity<?> getSubmissionFiles(@PathVariable(name = "submissionId") Integer submissionId) {
+    public Result<List<SubmissionFile>> getSubmissionFiles(
+            @PathVariable(name = "submissionId") Integer submissionId,
+            @RequestHeader("Authorization") String authHeader) {
+        if (!canAccessSubmission(submissionId, authHeader)) {
+            return Result.fail(ErrorCode.FORBIDDEN);
+        }
         List<SubmissionFile> files = codeSubmitService.getSubmissionFiles(submissionId);
-        return ResponseEntity.ok().body(Map.of(
-                "code", 200,
-                "data", files
-        ));
+        return Result.success(files);
     }
 
     /**
      * 获取评测结果
+     * 学生只能看自己的;教师/管理员可看任意
      */
     @GetMapping("/result/{submissionId}")
-    public ResponseEntity<?> getResult(@PathVariable(name = "submissionId") Integer submissionId) {
+    public Result<EvaluationResult> getResult(
+            @PathVariable(name = "submissionId") Integer submissionId,
+            @RequestHeader("Authorization") String authHeader) {
+        if (!canAccessSubmission(submissionId, authHeader)) {
+            return Result.fail(ErrorCode.FORBIDDEN);
+        }
         EvaluationResult result = codeSubmitService.getResult(submissionId);
-        return ResponseEntity.ok().body(Map.of(
-                "code", 200,
-                "data", result
-        ));
+        return Result.success(result);
     }
 
     /**
      * 获取提交状态
      */
     @GetMapping("/status/{submissionId}")
-    public ResponseEntity<?> getStatus(@PathVariable(name = "submissionId") Integer submissionId) {
+    public Result<Map<String, Integer>> getStatus(@PathVariable(name = "submissionId") Integer submissionId) {
         Integer status = codeSubmitService.getStatus(submissionId);
-        return ResponseEntity.ok().body(Map.of(
-                "code", 200,
-                "data", Map.of("status", status)
-        ));
+        Map<String, Integer> data = new HashMap<>();
+        data.put("status", status);
+        return Result.success(data);
+    }
+
+    private Integer currentUserId(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        String token = authHeader.substring(7);
+        if (!jwtUtils.validateToken(token)) {
+            return null;
+        }
+        return jwtUtils.getUserIdFromToken(token);
+    }
+
+    /**
+     * 检查当前用户是否有权访问指定 submission
+     * - teacher/admin: 任意 submission 可访问
+     * - student: 只能访问 studentId 等于自己的 submission
+     */
+    private boolean canAccessSubmission(Integer submissionId, String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return false;
+        }
+        String token = authHeader.substring(7);
+        if (!jwtUtils.validateToken(token)) {
+            return false;
+        }
+        String userType = jwtUtils.getUserTypeFromToken(token);
+        if ("teacher".equals(userType) || "admin".equals(userType)) {
+            return true;
+        }
+        if ("student".equals(userType)) {
+            Submission submission = submissionMapper.findById(submissionId);
+            if (submission == null) {
+                return false;
+            }
+            Integer userId = jwtUtils.getUserIdFromToken(token);
+            return userId != null && userId.equals(submission.getStudentId());
+        }
+        return false;
     }
 }

@@ -3,7 +3,6 @@ package com.javaevaluation.service;
 import com.javaevaluation.dto.CodeTask;
 import com.javaevaluation.dto.ExecutionResult;
 import com.javaevaluation.entity.EvaluationResult;
-import com.javaevaluation.entity.Submission;
 import com.javaevaluation.mapper.EvaluationResultMapper;
 import com.javaevaluation.mapper.SubmissionMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +25,7 @@ public class TaskProcessorService {
     private final EvaluationResultMapper evaluationResultMapper;
     private final DockerSandboxService dockerSandboxService;
     private final LlmReviewService llmReviewService;
+    private final ResultService resultService;
 
     /**
      * 处理评测任务
@@ -75,10 +75,7 @@ public class TaskProcessorService {
      * 更新提交状态
      */
     public void updateSubmissionStatus(Integer submissionId, Integer status) {
-        Submission submission = new Submission();
-        submission.setId(submissionId);
-        submission.setStatus(status);
-        submissionMapper.update(submission);
+        submissionMapper.updateStatus(submissionId, status);
     }
 
     /**
@@ -95,5 +92,6 @@ public class TaskProcessorService {
         evaluationResult.setCreatedAt(LocalDateTime.now());
 
         evaluationResultMapper.insert(evaluationResult);
+        resultService.evictCache(task.getSubmissionId());
     }
 }

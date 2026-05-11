@@ -99,9 +99,8 @@ public class LlmReviewService {
      */
     private String callLlmApi(String content) {
         try {
-            // 调试日志
+            // 调试日志（注意：不要打印 API Key）
             log.info("=== LLM API 调试信息 ===");
-            log.info("API Key: {}", siliconFlowProperties.getApiKey());
             log.info("Base URL: {}", siliconFlowProperties.getBaseUrl());
             log.info("Model: {}", siliconFlowProperties.getModel());
 

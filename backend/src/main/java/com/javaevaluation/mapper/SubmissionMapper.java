@@ -26,6 +26,12 @@ public interface SubmissionMapper {
     int update(Submission submission);
 
     /**
+     * 仅更新状态(不动 submit_time)
+     */
+    @Update("UPDATE submission SET status = #{status} WHERE id = #{id}")
+    int updateStatus(@Param("id") Integer id, @Param("status") Integer status);
+
+    /**
      * 根据ID查询提交记录
      */
     @Select("SELECT * FROM submission WHERE id = #{id}")
@@ -55,4 +61,24 @@ public interface SubmissionMapper {
      */
     @Select("SELECT COUNT(*) FROM submission WHERE homework_id = #{homeworkId}")
     int countByHomeworkId(@Param("homeworkId") Integer homeworkId);
+
+    /**
+     * 统计某教师作业下、状态小于 status 的提交数(待评测/评测中)
+     */
+    @Select("SELECT COUNT(*) FROM submission s " +
+            "JOIN homework h ON s.homework_id = h.id " +
+            "JOIN course c ON h.course_id = c.id " +
+            "WHERE c.teacher_id = #{teacherId} AND s.status < #{status}")
+    int countPendingByTeacherId(@Param("teacherId") Integer teacherId,
+                                @Param("status") Integer status);
+
+    /**
+     * 统计某教师作业下、指定状态的提交数(已完成)
+     */
+    @Select("SELECT COUNT(*) FROM submission s " +
+            "JOIN homework h ON s.homework_id = h.id " +
+            "JOIN course c ON h.course_id = c.id " +
+            "WHERE c.teacher_id = #{teacherId} AND s.status = #{status}")
+    int countByTeacherIdAndStatus(@Param("teacherId") Integer teacherId,
+                                  @Param("status") Integer status);
 }

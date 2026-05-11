@@ -1,5 +1,6 @@
 package com.javaevaluation.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -7,6 +8,7 @@ import java.time.LocalDateTime;
 public class Admin {
     private Integer id;
     private String username;
+    @JsonIgnore
     private String password;
     private String name;
     private LocalDateTime createdAt;

@@ -94,7 +94,7 @@ export function deleteHomework(id: number): Promise<void> {
 // 作业带状态类型
 export interface HomeworkWithStatus {
   homework: Homework
-  submitStatus: number
+  submitStatus: number | null
   submissionId: number | null
   submitTime: string | null
   score: number | null
@@ -102,8 +102,8 @@ export interface HomeworkWithStatus {
 }
 
 // 获取作业列表（学生，带提交状态）
-export function getHomeworkListForStudent(studentId: number): Promise<HomeworkWithStatus[]> {
-  return request.get('/student/homework/list', { params: { studentId } })
+export function getHomeworkListForStudent(): Promise<HomeworkWithStatus[]> {
+  return request.get('/student/homework/list')
 }
 
 // 获取作业详情（学生）

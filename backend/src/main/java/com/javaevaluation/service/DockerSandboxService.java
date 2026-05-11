@@ -70,15 +70,13 @@ public class DockerSandboxService {
             }
             log.info("✅ 找到 {} 个代码文件", files.size());
 
-            // 2. 获取测试用例
+            // 2. 获取测试用例(没有也继续走,让 LLM 仍可对代码进行评审)
             List<TestCase> testCases = testCaseMapper.findByHomeworkId(task.getHomeworkId());
             if (testCases.isEmpty()) {
-                log.error("❌ 没有找到测试用例: homeworkId={}", task.getHomeworkId());
-                result.setCompileStatus("FAILED");
-                result.setErrorMessage("没有找到测试用例");
-                return result;
+                log.warn("⚠️ 没有测试用例,将跳过功能测试: homeworkId={}", task.getHomeworkId());
+            } else {
+                log.info("✅ 找到 {} 个测试用例", testCases.size());
             }
-            log.info("✅ 找到 {} 个测试用例", testCases.size());
 
             // 3. 在Docker中编译和执行
             return executeInDocker(task, files, testCases);
@@ -185,8 +183,8 @@ public class DockerSandboxService {
             result.setCompileStatus("SUCCESS");
             result.setTestPassed(passed);
             result.setTestTotal(total);
-            result.setTestScore(calculateScore(passed, total));
-            result.setOutput(String.join("\n", testResults));
+            result.setTestScore(total > 0 ? calculateScore(passed, total) : null);
+            result.setOutput(total > 0 ? String.join("\n", testResults) : "无测试用例");
 
             log.info("🎉 评测完成: taskId={}, passed={}/{}, score={}", task.getTaskId(), passed, total, result.getTestScore());
 
@@ -258,8 +256,8 @@ public class DockerSandboxService {
                     .withAttachStdout(true)
                     .withAttachStderr(true)
                     .exec();
-            String debugOutput = executeCommand(containerId, debugExec);
-            log.info("📁 容器内/sandbox目录内容:\n{}", debugOutput);
+            CommandResult debugResult = executeCommand(containerId, debugExec);
+            log.info("📁 容器内/sandbox目录内容:\n{}", debugResult.output);
 
             // 构建javac命令，编译所有.java文件
             List<String> cmd = new ArrayList<>();
@@ -276,15 +274,15 @@ public class DockerSandboxService {
                     .withAttachStderr(true)
                     .exec();
 
-            String output = executeCommand(containerId, execCreate);
-            log.info("📝 编译输出: {}", output);
+            CommandResult commandResult = executeCommand(containerId, execCreate);
+            log.info("📝 编译输出: {}", commandResult.output);
 
-            // 检查编译结果
-            if (output.contains("error") || output.contains("错误")) {
-                result.setCompileStatus("COMPILE_ERROR");
-                result.setErrorMessage(output);
-            } else {
+            // 用退出码判断编译结果
+            if (commandResult.exitCode != null && commandResult.exitCode == 0) {
                 result.setCompileStatus("SUCCESS");
+            } else {
+                result.setCompileStatus("COMPILE_ERROR");
+                result.setErrorMessage(commandResult.output);
             }
 
         } catch (Exception e) {
@@ -317,16 +315,16 @@ public class DockerSandboxService {
                     .withAttachStderr(true)
                     .exec();
 
-            String output = executeCommand(containerId, execCreate);
+            CommandResult commandResult = executeCommand(containerId, execCreate);
 
             // 4. 比较输出
             String expected = testCase.getExpectedOutput().trim();
-            String actual = output.trim();
-            result.passed = expected.equals(actual);
-            result.output = output;
+            String actual = commandResult.output.trim();
+            result.passed = expected.equals(actual) && (commandResult.exitCode != null && commandResult.exitCode == 0);
+            result.output = commandResult.output;
 
-            log.debug("测试用例[{}]: input={}, expected={}, actual={}, passed={}",
-                    testCase.getName(), testCase.getInput(), expected, actual, result.passed);
+            log.debug("测试用例[{}]: input={}, expected={}, actual={}, exitCode={}, passed={}",
+                    testCase.getName(), testCase.getInput(), expected, actual, commandResult.exitCode, result.passed);
 
         } catch (Exception e) {
             result.passed = false;
@@ -346,7 +344,7 @@ public class DockerSandboxService {
     /**
      * 执行命令
      */
-    private String executeCommand(String containerId, ExecCreateCmdResponse execCreate) {
+    private CommandResult executeCommand(String containerId, ExecCreateCmdResponse execCreate) {
         StringBuilder output = new StringBuilder();
         try {
             dockerClient.execStartCmd(execCreate.getId())
@@ -357,10 +355,17 @@ public class DockerSandboxService {
                         }
                     })
                     .awaitCompletion(timeoutSeconds, TimeUnit.SECONDS);
+
+            // 获取退出码
+            Integer exitCode = dockerClient.inspectExecCmd(execCreate.getId())
+                    .exec()
+                    .getExitCode();
+            return new CommandResult(output.toString(), exitCode);
+
         } catch (Exception e) {
             log.error("❌ 执行命令失败", e);
+            return new CommandResult(output.toString(), null);
         }
-        return output.toString();
     }
 
     /**
@@ -412,6 +417,19 @@ public class DockerSandboxService {
                 }
             }
             dir.delete();
+        }
+    }
+
+    /**
+     * 命令执行结果内部类
+     */
+    private static class CommandResult {
+        final String output;
+        final Integer exitCode;
+
+        CommandResult(String output, Integer exitCode) {
+            this.output = output;
+            this.exitCode = exitCode;
         }
     }
 

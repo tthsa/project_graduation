@@ -15,34 +15,10 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #409eff">
-            <el-icon size="24"><User /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">用户总数</div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #67c23a">
-            <el-icon size="24"><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">课题总数</div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #e6a23c">
             <el-icon size="24"><Avatar /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0</div>
+            <div class="stat-value">{{ stats.teacherCount }}</div>
             <div class="stat-label">教师数量</div>
           </div>
         </el-card>
@@ -50,12 +26,36 @@
 
       <el-col :span="6">
         <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #f56c6c">
+          <div class="stat-icon" style="background-color: #67c23a">
             <el-icon size="24"><School /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0</div>
+            <div class="stat-value">{{ stats.studentCount }}</div>
             <div class="stat-label">学生数量</div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-icon" style="background-color: #e6a23c">
+            <el-icon size="24"><Reading /></el-icon>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.courseCount }}</div>
+            <div class="stat-label">课程数量</div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-icon" style="background-color: #f56c6c">
+            <el-icon size="24"><Document /></el-icon>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.homeworkCount }}</div>
+            <div class="stat-label">作业数量</div>
           </div>
         </el-card>
       </el-col>
@@ -70,16 +70,8 @@
           </template>
           <div class="quick-actions">
             <el-button type="primary" @click="$router.push('/admin/user')">
-              <el-icon><User /></el-icon>
-              用户管理
-            </el-button>
-            <el-button type="success" @click="$router.push('/admin/topic')">
-              <el-icon><Document /></el-icon>
-              课题管理
-            </el-button>
-            <el-button type="warning" @click="$router.push('/admin/system')">
-              <el-icon><Setting /></el-icon>
-              系统设置
+              <el-icon><Avatar /></el-icon>
+              教师管理
             </el-button>
           </div>
         </el-card>
@@ -103,11 +95,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { User, Document, Avatar, School, Setting } from '@element-plus/icons-vue'
+import { computed, reactive, onMounted } from 'vue'
+import { Document, Avatar, School, Reading } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getAdminStatsOverview } from '@/api/admin-stats'
 
 const userStore = useUserStore()
+
+const stats = reactive({
+  teacherCount: 0,
+  studentCount: 0,
+  courseCount: 0,
+  homeworkCount: 0,
+})
 
 const currentDate = computed(() => {
   const now = new Date()
@@ -117,6 +117,24 @@ const currentDate = computed(() => {
     day: 'numeric',
     weekday: 'long',
   })
+})
+
+const fetchStats = async () => {
+  try {
+    const data = await getAdminStatsOverview()
+    if (data) {
+      stats.teacherCount = data.teacherCount
+      stats.studentCount = data.studentCount
+      stats.courseCount = data.courseCount
+      stats.homeworkCount = data.homeworkCount
+    }
+  } catch {
+    // 错误已处理
+  }
+}
+
+onMounted(() => {
+  fetchStats()
 })
 </script>
 

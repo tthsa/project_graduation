@@ -15,11 +15,11 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #409eff">
-            <el-icon size="24"><Document /></el-icon>
+            <el-icon size="24"><Reading /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ homeworkCount }}</div>
-            <div class="stat-label">作业数量</div>
+            <div class="stat-value">{{ stats.courseCount }}</div>
+            <div class="stat-label">我的课程</div>
           </div>
         </el-card>
       </el-col>
@@ -27,11 +27,11 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #67c23a">
-            <el-icon size="24"><User /></el-icon>
+            <el-icon size="24"><Document /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ studentCount }}</div>
-            <div class="stat-label">学生数量</div>
+            <div class="stat-value">{{ stats.homeworkCount }}</div>
+            <div class="stat-label">我的作业</div>
           </div>
         </el-card>
       </el-col>
@@ -42,8 +42,8 @@
             <el-icon size="24"><Edit /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">待评审</div>
+            <div class="stat-value">{{ stats.pendingCount }}</div>
+            <div class="stat-label">待评测提交</div>
           </div>
         </el-card>
       </el-col>
@@ -51,11 +51,11 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon" style="background-color: #f56c6c">
-            <el-icon size="24"><Bell /></el-icon>
+            <el-icon size="24"><CircleCheck /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">0</div>
-            <div class="stat-label">待办事项</div>
+            <div class="stat-value">{{ stats.completedCount }}</div>
+            <div class="stat-label">已完成评测</div>
           </div>
         </el-card>
       </el-col>
@@ -69,11 +69,15 @@
             <span>快捷操作</span>
           </template>
           <div class="quick-actions">
-            <el-button type="primary" @click="goToHomework">
+            <el-button type="primary" @click="goToCourse">
+              <el-icon><Reading /></el-icon>
+              我的课程
+            </el-button>
+            <el-button type="success" @click="goToHomework">
               <el-icon><Document /></el-icon>
               发布作业
             </el-button>
-            <el-button type="success" @click="goToStudent">
+            <el-button type="warning" @click="goToStudent">
               <el-icon><User /></el-icon>
               学生管理
             </el-button>
@@ -103,18 +107,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Document, User, Edit, Bell } from '@element-plus/icons-vue'
+import { Document, User, Edit, Reading, CircleCheck } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getHomeworkList, type Homework } from '@/api/homework'
-import { getStudentList } from '@/api/student'
+import { getTeacherStatsOverview, type TeacherStatsOverview } from '@/api/teacher-stats'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const homeworkCount = ref(0)
-const studentCount = ref(0)
+const stats = reactive<TeacherStatsOverview>({
+  courseCount: 0,
+  homeworkCount: 0,
+  pendingCount: 0,
+  completedCount: 0,
+})
 const recentHomework = ref<Homework[]>([])
 
 const currentDate = computed(() => {
@@ -132,6 +140,10 @@ const formatTime = (time: string) => {
   return time.replace('T', ' ')
 }
 
+const goToCourse = () => {
+  router.push('/teacher/course')
+}
+
 const goToHomework = () => {
   router.push('/teacher/homework')
 }
@@ -142,9 +154,16 @@ const goToStudent = () => {
 
 const fetchStats = async () => {
   try {
-    const [homeworkList, studentList] = await Promise.all([getHomeworkList(), getStudentList()])
-    homeworkCount.value = homeworkList?.length || 0
-    studentCount.value = studentList?.length || 0
+    const [overview, homeworkList] = await Promise.all([
+      getTeacherStatsOverview(),
+      getHomeworkList(),
+    ])
+    if (overview) {
+      stats.courseCount = overview.courseCount
+      stats.homeworkCount = overview.homeworkCount
+      stats.pendingCount = overview.pendingCount
+      stats.completedCount = overview.completedCount
+    }
     recentHomework.value = homeworkList?.slice(0, 5) || []
   } catch {
     // 错误已处理
