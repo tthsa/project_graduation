@@ -6,6 +6,7 @@ import com.javaevaluation.entity.Student;
 import com.javaevaluation.mapper.StudentMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.List;
 public class StudentController {
 
     private final StudentMapper studentMapper;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 获取所有学生列表
@@ -59,6 +61,10 @@ public class StudentController {
         Student existingStudent = studentMapper.findByStudentNo(student.getStudentNo());
         if (existingStudent != null) {
             return Result.fail(ErrorCode.BAD_REQUEST, "学号已存在");
+        }
+        student.setPassword(passwordEncoder.encode(student.getPassword()));
+        if (student.getStatus() == null) {
+            student.setStatus(1);
         }
         studentMapper.insert(student);
         return Result.success(student);

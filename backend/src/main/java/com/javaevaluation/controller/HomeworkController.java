@@ -1,8 +1,11 @@
 package com.javaevaluation.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.javaevaluation.common.ErrorCode;
 import com.javaevaluation.common.Result;
 import com.javaevaluation.dto.HomeworkWithStatus;
+import com.javaevaluation.dto.LlmDimension;
 import com.javaevaluation.entity.EvaluationResult;
 import com.javaevaluation.entity.Homework;
 import com.javaevaluation.entity.Submission;
@@ -37,6 +40,8 @@ public class HomeworkController {
     private final JwtUtils jwtUtils;
     private final HomeworkOwnershipService homeworkOwnershipService;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     // ==================== 教师接口 ====================
 
     /**
@@ -65,6 +70,10 @@ public class HomeworkController {
      */
     @PostMapping("/teacher/homework/create")
     public Result<Homework> create(@Valid @RequestBody Homework homework) {
+        String error = validateScoringConfig(homework);
+        if (error != null) {
+            return Result.fail(400, error);
+        }
         homeworkMapper.insert(homework);
         return Result.success(homework);
     }
@@ -88,9 +97,82 @@ public class HomeworkController {
         if (!homeworkOwnershipService.isHomeworkOwnedBy(id, teacherId)) {
             return Result.fail(ErrorCode.FORBIDDEN);
         }
+        String error = validateScoringConfig(homework);
+        if (error != null) {
+            return Result.fail(400, error);
+        }
         homework.setId(id);
         homeworkMapper.update(homework);
         return Result.success(homework);
+    }
+
+    /**
+     * 校验老师配置的打分规则。返回 null 表示通过，否则返回错误信息。
+     * - 测试权重 + LLM 权重 = 100（若任一非空,则两个都必须非空且和为 100）
+     * - 等级阈值: A > B > C >= 0 且 A <= 100
+     * - 权重 [0, 100]
+     * - llmDimensions JSON: 数组, 每项 {name, weight}, weight 之和 = 100
+     */
+    private String validateScoringConfig(Homework hw) {
+        Integer tw = hw.getTestWeight();
+        Integer lw = hw.getLlmWeight();
+        if (tw != null || lw != null) {
+            if (tw == null || lw == null) {
+                return "测试权重和 LLM 权重必须同时设置";
+            }
+            if (tw < 0 || tw > 100 || lw < 0 || lw > 100) {
+                return "权重必须在 0-100 之间";
+            }
+            if (tw + lw != 100) {
+                return "测试权重 + LLM 权重必须等于 100, 当前为 " + (tw + lw);
+            }
+        }
+
+        Integer a = hw.getGradeAThreshold();
+        Integer b = hw.getGradeBThreshold();
+        Integer c = hw.getGradeCThreshold();
+        if (a != null || b != null || c != null) {
+            if (a == null || b == null || c == null) {
+                return "A/B/C 三个等级阈值必须同时设置";
+            }
+            if (a > 100 || c < 0) {
+                return "等级阈值必须在 0-100 之间";
+            }
+            if (!(a > b && b > c)) {
+                return "等级阈值必须满足 A > B > C, 当前 A=" + a + " B=" + b + " C=" + c;
+            }
+        }
+
+        String dimsJson = hw.getLlmDimensions();
+        if (dimsJson != null && !dimsJson.trim().isEmpty()) {
+            List<LlmDimension> dims;
+            try {
+                dims = objectMapper.readValue(dimsJson, new TypeReference<List<LlmDimension>>() {});
+            } catch (Exception e) {
+                return "LLM 评分维度格式错误: " + e.getMessage();
+            }
+            if (dims == null || dims.isEmpty()) {
+                return "LLM 评分维度不能为空数组";
+            }
+            if (dims.size() > 5) {
+                return "LLM 评分维度最多 5 个";
+            }
+            int weightSum = 0;
+            for (LlmDimension d : dims) {
+                if (d.getName() == null || d.getName().trim().isEmpty()) {
+                    return "LLM 评分维度名称不能为空";
+                }
+                if (d.getWeight() == null || d.getWeight() < 0 || d.getWeight() > 100) {
+                    return "LLM 评分维度权重必须在 0-100 之间";
+                }
+                weightSum += d.getWeight();
+            }
+            if (weightSum != 100) {
+                return "LLM 评分维度权重之和必须等于 100, 当前为 " + weightSum;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -199,13 +281,6 @@ public class HomeworkController {
     }
 
     private Integer currentUserId(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-        String token = authHeader.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return null;
-        }
-        return jwtUtils.getUserIdFromToken(token);
+        return jwtUtils.getUserIdFromHeader(authHeader);
     }
 }

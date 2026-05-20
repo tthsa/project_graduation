@@ -24,11 +24,14 @@ export interface SubmissionFile {
 export interface EvaluationResult {
   id: number
   submissionId: number
-  testScore: number
-  llmScore: number
-  llmReview: string
-  executionTime: number
+  testScore: number | null
+  llmScore: number | null
+  llmReview: string | null
+  executionTime: number | null
   createdAt: string
+  finalScore: number | null
+  grade: 'A' | 'B' | 'C' | 'D' | null
+  llmDimensionScores: string | null // JSON 字符串, 阶段 3 解析
 }
 
 // 获取某作业的所有学生提交情况

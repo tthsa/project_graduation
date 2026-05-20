@@ -28,6 +28,12 @@ public class CodeTask implements Serializable {
     /** 作业ID */
     private Integer homeworkId;
 
+    /** 作业标题（用于LLM题意判断） */
+    private String homeworkTitle;
+
+    /** 作业描述（用于LLM题意判断） */
+    private String homeworkDescription;
+
     /** 时间戳 */
     private Long timestamp;
 }

@@ -24,14 +24,35 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="测试分数" width="100">
+        <el-table-column label="测试分数" width="90">
           <template #default="{ row }">
             {{ scoreMap[row.id]?.testScore ?? '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="LLM分数" width="100">
+        <el-table-column label="LLM分数" width="90">
           <template #default="{ row }">
             {{ scoreMap[row.id]?.llmScore ?? '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="综合分" width="90">
+          <template #default="{ row }">
+            <strong v-if="scoreMap[row.id]?.finalScore != null">
+              {{ scoreMap[row.id]?.finalScore }}
+            </strong>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="等级" width="80">
+          <template #default="{ row }">
+            <el-tag
+              v-if="scoreMap[row.id]?.grade"
+              :type="getGradeType(scoreMap[row.id]?.grade)"
+              effect="dark"
+              size="small"
+            >
+              {{ scoreMap[row.id]?.grade }}
+            </el-tag>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" fixed="right" width="120">
@@ -94,6 +115,21 @@ const getStatusText = (status: number) => {
       return '失败'
     default:
       return '未知'
+  }
+}
+
+const getGradeType = (grade: 'A' | 'B' | 'C' | 'D' | null | undefined) => {
+  switch (grade) {
+    case 'A':
+      return 'success'
+    case 'B':
+      return 'warning'
+    case 'C':
+      return 'info'
+    case 'D':
+      return 'danger'
+    default:
+      return 'info'
   }
 }
 

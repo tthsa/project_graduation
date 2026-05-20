@@ -96,11 +96,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/teacher/list", "/api/teacher/*").hasRole("ADMIN")
                         // 教师业务接口
                         .requestMatchers("/api/teacher/**").hasAnyRole("ADMIN", "TEACHER")
-                        // 学生 CRUD(仅管理员可管理学生账户)
-                        .requestMatchers(HttpMethod.POST, "/api/student/create").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/student/*").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/student/*").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/student/list", "/api/student/class/*", "/api/student/*").hasRole("ADMIN")
+                        // 学生 CRUD（管理员/教师均可管理学生账户,UI 设计为教师管班）
+                        .requestMatchers(HttpMethod.POST, "/api/student/create").hasAnyRole("ADMIN", "TEACHER")
+                        .requestMatchers(HttpMethod.PUT, "/api/student/*").hasAnyRole("ADMIN", "TEACHER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/student/*").hasAnyRole("ADMIN", "TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/student/list", "/api/student/class/*", "/api/student/*").hasAnyRole("ADMIN", "TEACHER")
                         // 学生业务接口
                         .requestMatchers("/api/student/**").hasAnyRole("ADMIN", "TEACHER", "STUDENT")
                         // 其他请求需要认证

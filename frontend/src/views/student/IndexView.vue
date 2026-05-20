@@ -99,6 +99,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Document, TrendCharts, Folder, CircleCheck } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getHomeworkListForStudent, type HomeworkWithStatus } from '@/api/homework'
+import { formatTime } from '@/utils/format'
 
 const userStore = useUserStore()
 
@@ -118,11 +119,6 @@ const currentDate = computed(() => {
     weekday: 'long',
   })
 })
-
-const formatTime = (time: string) => {
-  if (!time) return '-'
-  return time.replace('T', ' ')
-}
 
 const fetchStats = async () => {
   try {

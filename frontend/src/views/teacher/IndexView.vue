@@ -113,6 +113,7 @@ import { Document, User, Edit, Reading, CircleCheck } from '@element-plus/icons-
 import { useUserStore } from '@/stores/user'
 import { getHomeworkList, type Homework } from '@/api/homework'
 import { getTeacherStatsOverview, type TeacherStatsOverview } from '@/api/teacher-stats'
+import { formatTime } from '@/utils/format'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -134,11 +135,6 @@ const currentDate = computed(() => {
     weekday: 'long',
   })
 })
-
-const formatTime = (time: string) => {
-  if (!time) return '-'
-  return time.replace('T', ' ')
-}
 
 const goToCourse = () => {
   router.push('/teacher/course')

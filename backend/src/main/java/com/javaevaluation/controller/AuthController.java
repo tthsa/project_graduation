@@ -117,7 +117,10 @@ public class AuthController {
      */
     @GetMapping("/me")
     public Result<?> getCurrentUser(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Result.fail(ErrorCode.TOKEN_INVALID);
+        }
+        String token = authHeader.substring(7);
 
         if (!jwtUtils.validateToken(token)) {
             return Result.fail(ErrorCode.TOKEN_INVALID);

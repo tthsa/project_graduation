@@ -118,7 +118,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = (to.meta.title as string) || '毕业设计管理系统'
+  document.title = (to.meta.title as string) || 'Java 作业评测系统'
 
   const userStore = useUserStore()
   const token = userStore.token || localStorage.getItem('token')

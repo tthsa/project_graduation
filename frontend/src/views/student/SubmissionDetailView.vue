@@ -23,10 +23,37 @@
         <el-descriptions-item label="LLM分数">
           {{ evaluation?.llmScore ?? '-' }}
         </el-descriptions-item>
+        <el-descriptions-item label="综合分">
+          <span v-if="evaluation?.finalScore != null">
+            <strong>{{ evaluation.finalScore }}</strong> / 100
+          </span>
+          <span v-else>-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="等级">
+          <el-tag v-if="evaluation?.grade" :type="getGradeType(evaluation.grade)" effect="dark">
+            {{ evaluation.grade }}
+          </el-tag>
+          <span v-else>-</span>
+        </el-descriptions-item>
         <el-descriptions-item label="执行耗时(ms)" :span="2">
           {{ evaluation?.executionTime ?? '-' }}
         </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <el-card style="margin-top: 16px" v-if="dimensionScores.length > 0">
+      <template #header>
+        <span>LLM 各维度评分</span>
+      </template>
+      <el-table :data="dimensionScores" stripe border size="small">
+        <el-table-column prop="name" label="评分维度" />
+        <el-table-column label="得分(满分 10)" width="160">
+          <template #default="{ row }">
+            <span v-if="row.score != null">{{ row.score }}</span>
+            <span v-else class="dim-missing">未提取到</span>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <el-card style="margin-top: 16px" v-if="evaluation?.llmReview">
@@ -72,6 +99,11 @@ const router = useRouter()
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false })
 
+interface DimensionScore {
+  name: string
+  score: number | null
+}
+
 const loading = ref(false)
 const submission = ref<Submission | null>(null)
 const evaluation = ref<EvaluationResult | null>(null)
@@ -82,6 +114,21 @@ const renderedReview = computed(() => {
   const src = evaluation.value?.llmReview
   if (!src) return ''
   return md.render(src)
+})
+
+const dimensionScores = computed<DimensionScore[]>(() => {
+  const raw = evaluation.value?.llmDimensionScores
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as DimensionScore[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((d) => ({
+      name: d?.name ?? '',
+      score: d?.score ?? null,
+    }))
+  } catch {
+    return []
+  }
 })
 
 const formatTime = (time: string | undefined | null) => {
@@ -116,6 +163,21 @@ const getStatusText = (status: number | undefined) => {
       return '失败'
     default:
       return '未知'
+  }
+}
+
+const getGradeType = (grade: 'A' | 'B' | 'C' | 'D' | null | undefined) => {
+  switch (grade) {
+    case 'A':
+      return 'success'
+    case 'B':
+      return 'warning'
+    case 'C':
+      return 'info'
+    case 'D':
+      return 'danger'
+    default:
+      return 'info'
   }
 }
 
@@ -250,5 +312,10 @@ onMounted(() => {
   max-height: 600px;
   overflow: auto;
   margin: 0;
+}
+
+.dim-missing {
+  color: var(--el-text-color-secondary);
+  font-style: italic;
 }
 </style>

@@ -22,6 +22,13 @@ export interface Homework {
   status: number
   createdAt: string
   updatedAt: string
+  // 评分配置
+  testWeight: number | null
+  llmWeight: number | null
+  gradeAThreshold: number | null
+  gradeBThreshold: number | null
+  gradeCThreshold: number | null
+  llmDimensions: string | null // JSON 字符串, 阶段 3 接维度时使用
 }
 
 // 添加作业参数
@@ -31,6 +38,12 @@ export interface AddHomeworkParams {
   description: string
   deadline: string
   status: number
+  testWeight?: number | null
+  llmWeight?: number | null
+  gradeAThreshold?: number | null
+  gradeBThreshold?: number | null
+  gradeCThreshold?: number | null
+  llmDimensions?: string | null
 }
 
 // 更新作业参数
@@ -41,6 +54,12 @@ export interface UpdateHomeworkParams {
   description: string
   deadline: string
   status: number
+  testWeight?: number | null
+  llmWeight?: number | null
+  gradeAThreshold?: number | null
+  gradeBThreshold?: number | null
+  gradeCThreshold?: number | null
+  llmDimensions?: string | null
 }
 
 // ==================== 教师接口 ====================
@@ -65,6 +84,12 @@ export function createHomework(data: AddHomeworkParams): Promise<Homework> {
     deadline: data.deadline ? data.deadline.replace(' ', 'T') : null,
     status: data.status,
     createdAt: now,
+    testWeight: data.testWeight ?? null,
+    llmWeight: data.llmWeight ?? null,
+    gradeAThreshold: data.gradeAThreshold ?? null,
+    gradeBThreshold: data.gradeBThreshold ?? null,
+    gradeCThreshold: data.gradeCThreshold ?? null,
+    llmDimensions: data.llmDimensions ?? null,
   }
   return request.post('/teacher/homework/create', payload)
 }
@@ -80,6 +105,12 @@ export function updateHomework(data: UpdateHomeworkParams): Promise<Homework> {
     deadline: data.deadline ? data.deadline.replace(' ', 'T') : null,
     status: data.status,
     updatedAt: now,
+    testWeight: data.testWeight ?? null,
+    llmWeight: data.llmWeight ?? null,
+    gradeAThreshold: data.gradeAThreshold ?? null,
+    gradeBThreshold: data.gradeBThreshold ?? null,
+    gradeCThreshold: data.gradeCThreshold ?? null,
+    llmDimensions: data.llmDimensions ?? null,
   }
   return request.put(`/teacher/homework/${data.id}`, payload)
 }

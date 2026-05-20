@@ -1,6 +1,5 @@
 package com.javaevaluation.service;
 
-import com.javaevaluation.dto.CodeTask;
 import com.javaevaluation.entity.EvaluationResult;
 import com.javaevaluation.entity.Submission;
 import com.javaevaluation.entity.SubmissionFile;
@@ -32,7 +31,6 @@ public class CodeSubmitService {
     private final SubmissionFileMapper submissionFileMapper;
     private final SubmissionHistoryMapper submissionHistoryMapper;
     private final ResultService resultService;
-    private final TaskQueueService taskQueueService;
 
     /**
      * 提交作业
@@ -43,54 +41,34 @@ public class CodeSubmitService {
      */
     @Transactional
     public Integer submitHomework(Integer studentId, Integer homeworkId, MultipartFile[] files) throws IOException {
-        // 1. 查询是否已有提交记录
-        Submission existing = submissionMapper.findByHomeworkIdAndStudentId(homeworkId, studentId);
+        Submission submission = submissionMapper.findByHomeworkIdAndStudentId(homeworkId, studentId);
 
-        if (existing != null) {
-            // 2a. 保存历史记录
+        if (submission != null) {
+            // 复用已有提交：保存历史、重置状态
             SubmissionHistory history = new SubmissionHistory();
-            history.setSubmissionId(existing.getId());
-            history.setSubmitTime(existing.getSubmitTime());
+            history.setSubmissionId(submission.getId());
+            history.setSubmitTime(submission.getSubmitTime());
             submissionHistoryMapper.insert(history);
 
-            // 2b. 删除旧文件记录
-            submissionFileMapper.deleteBySubmissionId(existing.getId());
-
-            // 2c. 插入新文件记录
-            List<SubmissionFile> newFiles = createSubmissionFiles(existing.getId(), files);
-            for (SubmissionFile file : newFiles) {
-                submissionFileMapper.insert(file);
-            }
-
-            // 2d. 更新提交记录
-            existing.setSubmitTime(LocalDateTime.now());
-            existing.setStatus(0);  // 重置为待评测
-            submissionMapper.update(existing);
-
-            // 3. 发送评测任务
-            sendEvaluationTask(existing);
-
-            return existing.getId();
+            submissionFileMapper.deleteBySubmissionId(submission.getId());
+            submission.setSubmitTime(LocalDateTime.now());
+            submission.setStatus(0);
+            submissionMapper.update(submission);
         } else {
-            // 2a. 创建新提交记录
-            Submission submission = new Submission();
+            // 新建提交
+            submission = new Submission();
             submission.setStudentId(studentId);
             submission.setHomeworkId(homeworkId);
             submission.setSubmitTime(LocalDateTime.now());
-            submission.setStatus(0);  // 待评测
+            submission.setStatus(0);
             submissionMapper.insert(submission);
-
-            // 2b. 插入文件记录
-            List<SubmissionFile> submissionFiles = createSubmissionFiles(submission.getId(), files);
-            for (SubmissionFile file : submissionFiles) {
-                submissionFileMapper.insert(file);
-            }
-
-            // 3. 发送评测任务
-            sendEvaluationTask(submission);
-
-            return submission.getId();
         }
+
+        // 插入文件记录(评测由教师手动触发,这里不再自动发 MQ)
+        for (SubmissionFile file : createSubmissionFiles(submission.getId(), files)) {
+            submissionFileMapper.insert(file);
+        }
+        return submission.getId();
     }
 
     /**
@@ -113,22 +91,6 @@ public class CodeSubmitService {
         }
 
         return submissionFiles;
-    }
-
-    /**
-     * 发送评测任务
-     */
-    private void sendEvaluationTask(Submission submission) {
-        CodeTask task = CodeTask.builder()
-                .taskId(String.valueOf(submission.getId()))
-                .submissionId(submission.getId())
-                .studentId(submission.getStudentId())
-                .homeworkId(submission.getHomeworkId())
-                .timestamp(System.currentTimeMillis())
-                .build();
-
-        taskQueueService.sendTask(task);
-        log.info("评测任务已发送: submissionId={}", submission.getId());
     }
 
     /**

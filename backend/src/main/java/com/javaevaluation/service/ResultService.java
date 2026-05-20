@@ -16,9 +16,6 @@ public class ResultService {
     @Autowired
     private EvaluationResultMapper evaluationResultMapper;
 
-    @Autowired
-    private SubmissionMapper submissionMapper;
-
     // 查询缓存
     private final Map<Integer, EvaluationResult> cache = new ConcurrentHashMap<>();
 

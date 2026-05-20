@@ -48,13 +48,6 @@ public class TeacherStatsController {
     }
 
     private Integer currentTeacherId(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-        String token = authHeader.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return null;
-        }
-        return jwtUtils.getUserIdFromToken(token);
+        return jwtUtils.getUserIdFromHeader(authHeader);
     }
 }

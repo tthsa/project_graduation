@@ -17,6 +17,9 @@ public interface TeacherMapper {
     @Select("SELECT * FROM teacher")
     List<Teacher> findAll();
 
+    @Select("SELECT COUNT(*) FROM teacher")
+    int count();
+
     @Insert("INSERT INTO teacher (teacher_no, password, name, email, phone, status, create_time) " +
             "VALUES (#{teacherNo}, #{password}, #{name}, #{email}, #{phone}, #{status}, #{createdAt})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

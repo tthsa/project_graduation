@@ -84,7 +84,7 @@
             <span>系统信息</span>
           </template>
           <div class="system-info">
-            <p><strong>系统名称：</strong>毕业设计管理系统</p>
+            <p><strong>系统名称：</strong>Java 作业评测系统</p>
             <p><strong>系统版本：</strong>v1.0.0</p>
             <p><strong>技术栈：</strong>Vue 3 + Element Plus + Spring Boot</p>
           </div>

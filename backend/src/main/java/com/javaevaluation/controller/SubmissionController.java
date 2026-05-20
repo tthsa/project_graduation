@@ -33,7 +33,7 @@ public class SubmissionController {
             @RequestParam(name = "homeworkId") Integer homeworkId,
             @RequestParam(name = "files") MultipartFile[] files,
             @RequestHeader("Authorization") String authHeader) {
-        Integer studentId = currentUserId(authHeader);
+        Integer studentId = jwtUtils.getUserIdFromHeader(authHeader);
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
@@ -70,7 +70,7 @@ public class SubmissionController {
     @GetMapping("/list")
     public Result<List<Submission>> listMySubmissions(
             @RequestHeader("Authorization") String authHeader) {
-        Integer studentId = currentUserId(authHeader);
+        Integer studentId = jwtUtils.getUserIdFromHeader(authHeader);
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
@@ -84,7 +84,7 @@ public class SubmissionController {
     public Result<Submission> getMySubmissionDetail(
             @PathVariable Integer submissionId,
             @RequestHeader("Authorization") String authHeader) {
-        Integer studentId = currentUserId(authHeader);
+        Integer studentId = jwtUtils.getUserIdFromHeader(authHeader);
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
@@ -139,42 +139,19 @@ public class SubmissionController {
         return Result.success(data);
     }
 
-    private Integer currentUserId(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-        String token = authHeader.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return null;
-        }
-        return jwtUtils.getUserIdFromToken(token);
-    }
-
-    /**
-     * 检查当前用户是否有权访问指定 submission
-     * - teacher/admin: 任意 submission 可访问
-     * - student: 只能访问 studentId 等于自己的 submission
-     */
     private boolean canAccessSubmission(Integer submissionId, String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String userType = jwtUtils.getUserTypeFromHeader(authHeader);
+        if (userType == null) {
             return false;
         }
-        String token = authHeader.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return false;
-        }
-        String userType = jwtUtils.getUserTypeFromToken(token);
         if ("teacher".equals(userType) || "admin".equals(userType)) {
             return true;
         }
-        if ("student".equals(userType)) {
-            Submission submission = submissionMapper.findById(submissionId);
-            if (submission == null) {
-                return false;
-            }
-            Integer userId = jwtUtils.getUserIdFromToken(token);
-            return userId != null && userId.equals(submission.getStudentId());
+        Integer userId = jwtUtils.getUserIdFromHeader(authHeader);
+        if (userId == null) {
+            return false;
         }
-        return false;
+        Submission submission = submissionMapper.findById(submissionId);
+        return submission != null && userId.equals(submission.getStudentId());
     }
 }

@@ -92,6 +92,36 @@ public class JwtUtils {
     }
 
     /**
+     * 从请求头Authorization中提取用户ID。
+     * 格式无效或token验证失败时返回null。
+     */
+    public Integer getUserIdFromHeader(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        String token = authHeader.substring(7);
+        if (!validateToken(token)) {
+            return null;
+        }
+        return getUserIdFromToken(token);
+    }
+
+    /**
+     * 从请求头Authorization中提取用户类型。
+     * 格式无效或token验证失败时返回null。
+     */
+    public String getUserTypeFromHeader(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        String token = authHeader.substring(7);
+        if (!validateToken(token)) {
+            return null;
+        }
+        return getUserTypeFromToken(token);
+    }
+
+    /**
      * 从Token中获取Claims
      */
     private Claims getClaimsFromToken(String token) {

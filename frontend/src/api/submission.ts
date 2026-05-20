@@ -1,5 +1,6 @@
 import request from './request'
 import type { Submission } from './report'
+export type { Submission } from './report'
 
 // 提交作业（文件上传）
 export function submitHomework(data: {

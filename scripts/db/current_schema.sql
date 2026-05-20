@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict P3Bm3lf5uUWqG7UAIsIm6HK5wLPcaHbxdRgKeG9gJtDaEadNswCKXSWVmK9naQB
+\restrict JUStb66b72c2mMVqoZWZLyBJkss0Q4iQJoQMIYcXQXMFcMquaZrf9ZxK3IPmL4D
 
 -- Dumped from database version 15.17
 -- Dumped by pg_dump version 15.17
@@ -275,7 +275,10 @@ CREATE TABLE public.evaluation_result (
     llm_score integer DEFAULT 0,
     llm_review text,
     execution_time bigint DEFAULT 0,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    final_score integer,
+    grade character varying(2) DEFAULT NULL::character varying,
+    llm_dimension_scores text
 );
 
 
@@ -326,6 +329,27 @@ COMMENT ON COLUMN public.evaluation_result.execution_time IS '执行时间(毫�
 --
 
 COMMENT ON COLUMN public.evaluation_result.created_at IS '创建时间';
+
+
+--
+-- Name: COLUMN evaluation_result.final_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.evaluation_result.final_score IS '综合分 (0-100), NULL=该提交在加列前评的, 未填';
+
+
+--
+-- Name: COLUMN evaluation_result.grade; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.evaluation_result.grade IS '等级 A/B/C/D, 由 final_score + homework 阈值映射, NULL=同上';
+
+
+--
+-- Name: COLUMN evaluation_result.llm_dimension_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.evaluation_result.llm_dimension_scores IS '各 LLM 维度分 JSON, 形如 [{"name":"代码质量","score":8}], NULL=LLM 失败或单维度模式';
 
 
 --
@@ -416,7 +440,13 @@ CREATE TABLE public.homework (
     deadline timestamp without time zone,
     status integer DEFAULT 1,
     create_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone
+    updated_at timestamp without time zone,
+    test_weight integer DEFAULT 70,
+    llm_weight integer DEFAULT 30,
+    grade_a_threshold integer DEFAULT 90,
+    grade_b_threshold integer DEFAULT 75,
+    grade_c_threshold integer DEFAULT 60,
+    llm_dimensions text
 );
 
 
@@ -474,6 +504,48 @@ COMMENT ON COLUMN public.homework.create_time IS '创建时间';
 --
 
 COMMENT ON COLUMN public.homework.updated_at IS '更新时间';
+
+
+--
+-- Name: COLUMN homework.test_weight; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.test_weight IS '测试得分权重 (0-100), 与 llm_weight 之和必须=100';
+
+
+--
+-- Name: COLUMN homework.llm_weight; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.llm_weight IS 'LLM 评分权重 (0-100), 与 test_weight 之和必须=100';
+
+
+--
+-- Name: COLUMN homework.grade_a_threshold; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.grade_a_threshold IS 'A 等级阈值, final_score>=此值为 A';
+
+
+--
+-- Name: COLUMN homework.grade_b_threshold; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.grade_b_threshold IS 'B 等级阈值, A>B>C';
+
+
+--
+-- Name: COLUMN homework.grade_c_threshold; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.grade_c_threshold IS 'C 等级阈值, 低于此值为 D';
+
+
+--
+-- Name: COLUMN homework.llm_dimensions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.homework.llm_dimensions IS 'LLM 评分维度 JSON, NULL=默认单维度。形如 [{"name":"代码质量","weight":50},{"name":"可读性","weight":50}]';
 
 
 --
@@ -1653,5 +1725,5 @@ ALTER TABLE ONLY public.test_case
 -- PostgreSQL database dump complete
 --
 
-\unrestrict P3Bm3lf5uUWqG7UAIsIm6HK5wLPcaHbxdRgKeG9gJtDaEadNswCKXSWVmK9naQB
+\unrestrict JUStb66b72c2mMVqoZWZLyBJkss0Q4iQJoQMIYcXQXMFcMquaZrf9ZxK3IPmL4D
 

@@ -17,6 +17,9 @@ public interface CourseMapper {
     @Select("SELECT * FROM course ORDER BY id DESC")
     List<Course> findAll();
 
+    @Select("SELECT COUNT(*) FROM course")
+    int count();
+
     @Insert("INSERT INTO course (name, teacher_id, class_id, create_time) " +
             "VALUES (#{name}, #{teacherId}, #{classId}, CURRENT_TIMESTAMP)")
     @Options(useGeneratedKeys = true, keyProperty = "id")

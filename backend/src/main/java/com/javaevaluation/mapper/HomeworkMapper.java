@@ -17,13 +17,27 @@ public interface HomeworkMapper {
     @Select("SELECT * FROM homework")
     List<Homework> findAll();
 
-    @Insert("INSERT INTO homework (course_id, title, description, deadline, status, create_time) " +
-            "VALUES (#{courseId}, #{title}, #{description}, #{deadline}, #{status}, #{createdAt})")
+    @Select("SELECT COUNT(*) FROM homework")
+    int count();
+
+    @Insert("INSERT INTO homework (course_id, title, description, deadline, status, create_time, " +
+            "test_weight, llm_weight, grade_a_threshold, grade_b_threshold, grade_c_threshold, llm_dimensions) " +
+            "VALUES (#{courseId}, #{title}, #{description}, #{deadline}, #{status}, #{createdAt}, " +
+            "COALESCE(#{testWeight}, 70), COALESCE(#{llmWeight}, 30), " +
+            "COALESCE(#{gradeAThreshold}, 90), COALESCE(#{gradeBThreshold}, 75), COALESCE(#{gradeCThreshold}, 60), " +
+            "#{llmDimensions})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Homework homework);
 
     @Update("UPDATE homework SET title = #{title}, description = #{description}, " +
-            "deadline = #{deadline}, status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}")
+            "deadline = #{deadline}, status = #{status}, updated_at = #{updatedAt}, " +
+            "test_weight = COALESCE(#{testWeight}, test_weight), " +
+            "llm_weight = COALESCE(#{llmWeight}, llm_weight), " +
+            "grade_a_threshold = COALESCE(#{gradeAThreshold}, grade_a_threshold), " +
+            "grade_b_threshold = COALESCE(#{gradeBThreshold}, grade_b_threshold), " +
+            "grade_c_threshold = COALESCE(#{gradeCThreshold}, grade_c_threshold), " +
+            "llm_dimensions = #{llmDimensions} " +
+            "WHERE id = #{id}")
     int update(Homework homework);
 
     @Delete("DELETE FROM homework WHERE id = #{id}")

@@ -26,10 +26,10 @@ public class AdminStatsController {
     @GetMapping("/overview")
     public Result<Map<String, Integer>> overview() {
         Map<String, Integer> stats = new LinkedHashMap<>();
-        stats.put("teacherCount", teacherMapper.findAll().size());
-        stats.put("studentCount", studentMapper.findAll().size());
-        stats.put("courseCount", courseMapper.findAll().size());
-        stats.put("homeworkCount", homeworkMapper.findAll().size());
+        stats.put("teacherCount", teacherMapper.count());
+        stats.put("studentCount", studentMapper.count());
+        stats.put("courseCount", courseMapper.count());
+        stats.put("homeworkCount", homeworkMapper.count());
         return Result.success(stats);
     }
 }

@@ -6,6 +6,7 @@ import com.javaevaluation.entity.Teacher;
 import com.javaevaluation.mapper.TeacherMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.List;
 public class TeacherController {
 
     private final TeacherMapper teacherMapper;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 获取所有教师列表
@@ -50,6 +52,10 @@ public class TeacherController {
         Teacher existingTeacher = teacherMapper.findByTeacherNo(teacher.getTeacherNo());
         if (existingTeacher != null) {
             return Result.fail(ErrorCode.BAD_REQUEST, "工号已存在");
+        }
+        teacher.setPassword(passwordEncoder.encode(teacher.getPassword()));
+        if (teacher.getStatus() == null) {
+            teacher.setStatus(1);
         }
         teacherMapper.insert(teacher);
         return Result.success(teacher);

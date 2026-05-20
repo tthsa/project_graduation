@@ -20,6 +20,9 @@ public interface StudentMapper {
     @Select("SELECT * FROM student")
     List<Student> findAll();
 
+    @Select("SELECT COUNT(*) FROM student")
+    int count();
+
     @Insert("INSERT INTO student (student_no, password, name, email, class_id, status, first_login, create_time) " +
             "VALUES (#{studentNo}, #{password}, #{name}, #{email}, #{classId}, #{status}, #{firstLogin}, #{createdAt})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
