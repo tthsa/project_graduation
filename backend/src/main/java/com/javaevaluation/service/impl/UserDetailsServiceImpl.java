@@ -1,4 +1,4 @@
-package com.javaevaluation.security;
+package com.javaevaluation.service.impl;
 
 import com.javaevaluation.entity.Admin;
 import com.javaevaluation.entity.Student;

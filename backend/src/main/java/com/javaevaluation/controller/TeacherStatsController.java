@@ -5,7 +5,7 @@ import com.javaevaluation.common.Result;
 import com.javaevaluation.mapper.CourseMapper;
 import com.javaevaluation.mapper.HomeworkMapper;
 import com.javaevaluation.mapper.SubmissionMapper;
-import com.javaevaluation.security.JwtUtils;
+import com.javaevaluation.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,7 +34,7 @@ public class TeacherStatsController {
      */
     @GetMapping("/overview")
     public Result<Map<String, Integer>> overview(@RequestHeader("Authorization") String authHeader) {
-        Integer teacherId = currentTeacherId(authHeader);
+        Integer teacherId = jwtUtils.getUserIdFromHeader(authHeader);
         if (teacherId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
@@ -45,9 +45,5 @@ public class TeacherStatsController {
         stats.put("pendingCount", submissionMapper.countPendingByTeacherId(teacherId, 2));
         stats.put("completedCount", submissionMapper.countByTeacherIdAndStatus(teacherId, 2));
         return Result.success(stats);
-    }
-
-    private Integer currentTeacherId(String authHeader) {
-        return jwtUtils.getUserIdFromHeader(authHeader);
     }
 }

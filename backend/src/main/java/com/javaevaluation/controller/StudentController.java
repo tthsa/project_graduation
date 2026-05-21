@@ -27,7 +27,7 @@ public class StudentController {
      */
     @GetMapping("/list")
     public Result<List<Student>> list() {
-        List<Student> students = studentMapper.findAll();
+        List<Student> students = studentMapper.selectList(null);
         return Result.success(students);
     }
 
@@ -45,7 +45,7 @@ public class StudentController {
      */
     @GetMapping("/{id}")
     public Result<Student> getById(@PathVariable Integer id) {
-        Student student = studentMapper.findById(id);
+        Student student = studentMapper.selectById(id);
         if (student == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
@@ -75,12 +75,12 @@ public class StudentController {
      */
     @PutMapping("/{id}")
     public Result<Student> update(@PathVariable Integer id, @Valid @RequestBody Student student) {
-        Student existingStudent = studentMapper.findById(id);
+        Student existingStudent = studentMapper.selectById(id);
         if (existingStudent == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
         student.setId(id);
-        studentMapper.update(student);
+        studentMapper.updateById(student);
         return Result.success(student);
     }
 
@@ -89,11 +89,11 @@ public class StudentController {
      */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Integer id) {
-        Student student = studentMapper.findById(id);
+        Student student = studentMapper.selectById(id);
         if (student == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
-        studentMapper.delete(id);
+        studentMapper.deleteById(id);
         return Result.success(null);
     }
 }

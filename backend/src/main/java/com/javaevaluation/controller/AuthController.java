@@ -10,7 +10,7 @@ import com.javaevaluation.entity.Teacher;
 import com.javaevaluation.mapper.AdminMapper;
 import com.javaevaluation.mapper.StudentMapper;
 import com.javaevaluation.mapper.TeacherMapper;
-import com.javaevaluation.security.JwtUtils;
+import com.javaevaluation.utils.JwtUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -129,27 +129,22 @@ public class AuthController {
         Integer userId = jwtUtils.getUserIdFromToken(token);
         String userType = jwtUtils.getUserTypeFromToken(token);
 
-        switch (userType) {
-            case "admin":
-                Admin admin = adminMapper.findById(userId);
-                if (admin != null) {
-                    return Result.success(admin);
-                }
-                break;
-            case "teacher":
-                Teacher teacher = teacherMapper.findById(userId);
-                if (teacher != null) {
-                    return Result.success(teacher);
-                }
-                break;
-            case "student":
-                Student student = studentMapper.findById(userId);
-                if (student != null) {
-                    return Result.success(student);
-                }
-                break;
+        Object user = findUserById(userId, userType);
+        if (user != null) {
+            return Result.success(user);
         }
-
         return Result.fail(ErrorCode.USER_NOT_FOUND);
+    }
+
+    /**
+     * 根据用户类型和ID查询用户对象
+     */
+    private Object findUserById(Integer userId, String userType) {
+        return switch (userType) {
+            case "admin" -> adminMapper.selectById(userId);
+            case "teacher" -> teacherMapper.selectById(userId);
+            case "student" -> studentMapper.selectById(userId);
+            default -> null;
+        };
     }
 }

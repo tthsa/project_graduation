@@ -1,17 +1,17 @@
 package com.javaevaluation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-
-import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
 
 /**
  * 课程实体
  */
 @Data
-public class Course {
-    private Integer id;
+@EqualsAndHashCode(callSuper = true)
+@TableName("course")
+public class Course extends BaseEntity {
     private String name;
     private Integer teacherId;
     private Integer classId;
-    private LocalDateTime createdAt;
 }

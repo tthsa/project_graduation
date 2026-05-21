@@ -5,18 +5,19 @@ import com.javaevaluation.dto.ExecutionResult;
 import com.javaevaluation.dto.LlmDimension;
 import com.javaevaluation.entity.SubmissionFile;
 import com.javaevaluation.mapper.SubmissionFileMapper;
-import com.javaevaluation.properties.SiliconFlowProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,13 +26,28 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class LlmReviewService {
 
     private final RestTemplate restTemplate;
     private final SubmissionFileMapper submissionFileMapper;
-    private final SiliconFlowProperties siliconFlowProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${siliconflow.api-key}")
+    private String apiKey;
+
+    @Value("${siliconflow.base-url}")
+    private String baseUrl;
+
+    @Value("${siliconflow.model}")
+    private String model;
+
+    @Value("${siliconflow.timeout}")
+    private int timeout;
+
+    public LlmReviewService(RestTemplate restTemplate, SubmissionFileMapper submissionFileMapper) {
+        this.restTemplate = restTemplate;
+        this.submissionFileMapper = submissionFileMapper;
+    }
 
     /**
      * 默认单维度配置（代码质量 100%）。
@@ -151,28 +167,28 @@ public class LlmReviewService {
      */
     private String callLlmApi(String content) {
         try {
-            // 调试日志（注意：不要打印 API Key）
-            log.info("=== LLM API 调试信息 ===");
-            log.info("Base URL: {}", siliconFlowProperties.getBaseUrl());
-            log.info("Model: {}", siliconFlowProperties.getModel());
+            log.info("=== LLM API 调用 ===");
+            log.info("Base URL: {}", baseUrl);
+            log.info("Model: {}", model);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + siliconFlowProperties.getApiKey());
+            headers.set("Authorization", "Bearer " + apiKey);
 
-            // 构建请求体
-            String requestBody = String.format(
-                    "{\"model\":\"%s\",\"messages\":[{\"role\":\"user\",\"content\":\"%s\"}]}",
-                    siliconFlowProperties.getModel(),
-                    escapeJson(content)
-            );
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", content);
 
-            log.info("Request Body: {}", requestBody);
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("messages", Collections.singletonList(message));
 
-            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            String requestJson = objectMapper.writeValueAsString(requestBody);
+            log.debug("Request Body: {}", requestJson);
 
-            String apiUrl = siliconFlowProperties.getBaseUrl() + "/v1/chat/completions";
-            log.info("API URL: {}", apiUrl);
+            HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
+
+            String apiUrl = baseUrl + "/v1/chat/completions";
 
             ResponseEntity<String> response = restTemplate.exchange(
                     apiUrl,
@@ -345,14 +361,4 @@ public class LlmReviewService {
         return null;
     }
 
-    /**
-     * 转义JSON字符串
-     */
-    private String escapeJson(String str) {
-        return str.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
 }

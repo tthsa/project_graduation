@@ -53,7 +53,7 @@ public class CodeSubmitService {
             submissionFileMapper.deleteBySubmissionId(submission.getId());
             submission.setSubmitTime(LocalDateTime.now());
             submission.setStatus(0);
-            submissionMapper.update(submission);
+            submissionMapper.updateById(submission);
         } else {
             // 新建提交
             submission = new Submission();
@@ -111,7 +111,7 @@ public class CodeSubmitService {
      * 获取提交状态
      */
     public Integer getStatus(Integer submissionId) {
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         return submission != null ? submission.getStatus() : null;
     }
 }

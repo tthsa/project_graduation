@@ -1,0 +1,59 @@
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build
+target/
+build/
+dist/
+*.jar
+*.war
+*.ear
+
+# Maven
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Logs
+*.log
+logs/
+
+# Test data
+test/output/
+test/*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Dev logs (project specific)
+WORK_LOG_*.md
+DEV_LOG_*.md
+FIX_LOG_*.md
+CODE_REVIEW.md
+
+# Temporary files
+*.tmp
+*.temp
+*.bak

@@ -10,40 +10,23 @@ interface UserInfo {
   userType: string
 }
 
-const readStoredUserInfo = (): UserInfo | null => {
-  try {
-    const raw = localStorage.getItem('userInfo')
-    return raw ? (JSON.parse(raw) as UserInfo) : null
-  } catch {
-    return null
-  }
-}
-
 export const useUserStore = defineStore('user', () => {
   // 状态
-  const token = ref<string>(localStorage.getItem('token') || '')
-  const userInfo = ref<UserInfo | null>(readStoredUserInfo())
-
-  const persistUserInfo = (info: UserInfo) => {
-    userInfo.value = info
-    localStorage.setItem('userInfo', JSON.stringify(info))
-  }
+  const token = ref<string>('')
+  const userInfo = ref<UserInfo | null>(null)
 
   // 登录
   const login = async (params: LoginParams) => {
     const result = await loginApi(params)
 
-    // 保存 token
     token.value = result.token
-    localStorage.setItem('token', result.token)
 
-    // 保存用户信息
-    persistUserInfo({
+    userInfo.value = {
       userId: result.userId,
       username: result.username,
       name: result.name,
       userType: result.userType,
-    })
+    }
 
     return result
   }
@@ -51,24 +34,20 @@ export const useUserStore = defineStore('user', () => {
   // 获取用户信息
   const getUserInfo = async () => {
     const result = await getUserInfoApi()
-    persistUserInfo({
+    userInfo.value = {
       userId: result.userId,
       username: result.username,
       name: result.name,
       userType: result.userType,
-    })
+    }
     return result
   }
 
   // 退出登录
   const logout = async () => {
     await logoutApi()
-
-    // 清除状态
     token.value = ''
     userInfo.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('userInfo')
   }
 
   // 是否已登录
@@ -84,4 +63,8 @@ export const useUserStore = defineStore('user', () => {
     getUserInfo,
     isLoggedIn,
   }
+}, {
+  persist: {
+    pick: ['token', 'userInfo'],
+  },
 })

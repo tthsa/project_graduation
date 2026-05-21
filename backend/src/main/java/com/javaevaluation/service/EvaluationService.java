@@ -1,5 +1,6 @@
 package com.javaevaluation.service;
 
+import com.javaevaluation.config.RabbitMQConfig;
 import com.javaevaluation.dto.CodeTask;
 import com.javaevaluation.entity.Homework;
 import com.javaevaluation.entity.Submission;
@@ -7,6 +8,7 @@ import com.javaevaluation.mapper.HomeworkMapper;
 import com.javaevaluation.mapper.SubmissionMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -24,7 +26,7 @@ public class EvaluationService {
 
     private final SubmissionMapper submissionMapper;
     private final HomeworkMapper homeworkMapper;
-    private final TaskQueueService taskQueueService;
+    private final RabbitTemplate rabbitTemplate;
 
     /**
      * 触发单条提交评测
@@ -38,7 +40,7 @@ public class EvaluationService {
      * @return true=已发 MQ;false=状态不允许或提交不存在
      */
     public boolean triggerOne(Integer submissionId) {
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             log.warn("触发评测失败: submission 不存在, id={}", submissionId);
             return false;
@@ -79,7 +81,7 @@ public class EvaluationService {
     }
 
     private void sendTaskForSubmission(Submission submission) {
-        Homework homework = homeworkMapper.findById(submission.getHomeworkId());
+        Homework homework = homeworkMapper.selectById(submission.getHomeworkId());
         CodeTask task = CodeTask.builder()
                 .taskId(String.valueOf(submission.getId()))
                 .submissionId(submission.getId())
@@ -89,7 +91,11 @@ public class EvaluationService {
                 .homeworkDescription(homework != null ? homework.getDescription() : null)
                 .timestamp(System.currentTimeMillis())
                 .build();
-        taskQueueService.sendTask(task);
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.EXCHANGE,
+                RabbitMQConfig.TASK_ROUTING_KEY,
+                task
+        );
         log.info("评测任务已发送: submissionId={}, homeworkTitle={}", submission.getId(), task.getHomeworkTitle());
     }
 }

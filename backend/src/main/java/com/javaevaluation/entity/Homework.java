@@ -1,18 +1,20 @@
 package com.javaevaluation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
 import java.time.LocalDateTime;
 
 @Data
-public class Homework {
-    private Integer id;
+@EqualsAndHashCode(callSuper = true)
+@TableName("homework")
+public class Homework extends BaseEntity {
     private Integer courseId;
     private String title;
     private String description;
     private LocalDateTime deadline;
     private Integer status;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     /** 测试得分权重 (0-100), 与 llmWeight 之和必须=100 */
     private Integer testWeight;

@@ -44,7 +44,7 @@ public class TaskProcessorService {
             ExecutionResult result = dockerSandboxService.executeTask(task);
 
             // 加载作业配置 + 解析评分维度
-            Homework homework = homeworkMapper.findById(task.getHomeworkId());
+            Homework homework = homeworkMapper.selectById(task.getHomeworkId());
             List<LlmDimension> dimensions = scoringService.parseDimensions(
                     homework == null ? null : homework.getLlmDimensions());
 

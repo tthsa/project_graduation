@@ -25,11 +25,11 @@ public class HomeworkOwnershipService {
         if (homeworkId == null || teacherId == null) {
             return false;
         }
-        Homework homework = homeworkMapper.findById(homeworkId);
+        Homework homework = homeworkMapper.selectById(homeworkId);
         if (homework == null || homework.getCourseId() == null) {
             return false;
         }
-        Course course = courseMapper.findById(homework.getCourseId());
+        Course course = courseMapper.selectById(homework.getCourseId());
         return course != null && teacherId.equals(course.getTeacherId());
     }
 
@@ -37,7 +37,7 @@ public class HomeworkOwnershipService {
         if (testCaseId == null || teacherId == null) {
             return false;
         }
-        TestCase testCase = testCaseMapper.findById(testCaseId);
+        TestCase testCase = testCaseMapper.selectById(testCaseId);
         if (testCase == null) {
             return false;
         }

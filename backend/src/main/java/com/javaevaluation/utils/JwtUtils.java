@@ -1,4 +1,4 @@
-package com.javaevaluation.security;
+package com.javaevaluation.utils;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

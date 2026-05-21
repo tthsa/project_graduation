@@ -4,7 +4,7 @@ import com.javaevaluation.common.ErrorCode;
 import com.javaevaluation.common.Result;
 import com.javaevaluation.entity.Submission;
 import com.javaevaluation.mapper.SubmissionMapper;
-import com.javaevaluation.security.JwtUtils;
+import com.javaevaluation.utils.JwtUtils;
 import com.javaevaluation.service.EvaluationService;
 import com.javaevaluation.service.HomeworkOwnershipService;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class EvaluationController {
         if (teacherId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }

@@ -1,21 +1,12 @@
 package com.javaevaluation.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.javaevaluation.entity.EvaluationResult;
 import org.apache.ibatis.annotations.*;
 
 @Mapper
-public interface EvaluationResultMapper {
-
-    @Select("SELECT * FROM evaluation_result WHERE id = #{id}")
-    EvaluationResult findById(Integer id);
+public interface EvaluationResultMapper extends BaseMapper<EvaluationResult> {
 
     @Select("SELECT * FROM evaluation_result WHERE submission_id = #{submissionId} ORDER BY created_at DESC LIMIT 1")
     EvaluationResult findBySubmissionId(Integer submissionId);
-
-    @Insert("INSERT INTO evaluation_result (submission_id, test_score, llm_score, llm_review, execution_time, created_at, " +
-            "final_score, grade, llm_dimension_scores) " +
-            "VALUES (#{submissionId}, #{testScore}, #{llmScore}, #{llmReview}, #{executionTime}, #{createdAt}, " +
-            "#{finalScore}, #{grade}, #{llmDimensionScores})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(EvaluationResult result);
 }

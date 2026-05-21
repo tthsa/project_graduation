@@ -14,7 +14,7 @@ import com.javaevaluation.mapper.EvaluationResultMapper;
 import com.javaevaluation.mapper.HomeworkMapper;
 import com.javaevaluation.mapper.SubmissionMapper;
 import com.javaevaluation.mapper.TestCaseMapper;
-import com.javaevaluation.security.JwtUtils;
+import com.javaevaluation.utils.JwtUtils;
 import com.javaevaluation.service.HomeworkOwnershipService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +49,7 @@ public class HomeworkController {
      */
     @GetMapping("/teacher/homework/list")
     public Result<List<Homework>> list() {
-        List<Homework> homeworkList = homeworkMapper.findAll();
+        List<Homework> homeworkList = homeworkMapper.selectList(null);
         return Result.success(homeworkList);
     }
 
@@ -58,7 +58,7 @@ public class HomeworkController {
      */
     @GetMapping("/teacher/homework/{id}")
     public Result<Homework> getById(@PathVariable Integer id) {
-        Homework homework = homeworkMapper.findById(id);
+        Homework homework = homeworkMapper.selectById(id);
         if (homework == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
@@ -86,11 +86,11 @@ public class HomeworkController {
             @PathVariable Integer id,
             @Valid @RequestBody Homework homework,
             @RequestHeader("Authorization") String authHeader) {
-        Homework existingHomework = homeworkMapper.findById(id);
+        Homework existingHomework = homeworkMapper.selectById(id);
         if (existingHomework == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
-        Integer teacherId = currentUserId(authHeader);
+        Integer teacherId = jwtUtils.getUserIdFromHeader(authHeader);
         if (teacherId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
@@ -102,7 +102,7 @@ public class HomeworkController {
             return Result.fail(400, error);
         }
         homework.setId(id);
-        homeworkMapper.update(homework);
+        homeworkMapper.updateById(homework);
         return Result.success(homework);
     }
 
@@ -182,18 +182,18 @@ public class HomeworkController {
     public Result<Void> delete(
             @PathVariable Integer id,
             @RequestHeader("Authorization") String authHeader) {
-        Homework homework = homeworkMapper.findById(id);
+        Homework homework = homeworkMapper.selectById(id);
         if (homework == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
-        Integer teacherId = currentUserId(authHeader);
+        Integer teacherId = jwtUtils.getUserIdFromHeader(authHeader);
         if (teacherId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
         if (!homeworkOwnershipService.isHomeworkOwnedBy(id, teacherId)) {
             return Result.fail(ErrorCode.FORBIDDEN);
         }
-        homeworkMapper.delete(id);
+        homeworkMapper.deleteById(id);
         return Result.success(null);
     }
 
@@ -205,12 +205,12 @@ public class HomeworkController {
     @GetMapping("/student/homework/list")
     public Result<List<HomeworkWithStatus>> listForStudent(
             @RequestHeader("Authorization") String authHeader) {
-        Integer studentId = currentUserId(authHeader);
+        Integer studentId = jwtUtils.getUserIdFromHeader(authHeader);
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
 
-        List<Homework> homeworkList = homeworkMapper.findAll();
+        List<Homework> homeworkList = homeworkMapper.selectList(null);
         List<HomeworkWithStatus> result = new ArrayList<>();
 
         for (Homework homework : homeworkList) {
@@ -248,7 +248,7 @@ public class HomeworkController {
      */
     @GetMapping("/student/homework/{id}")
     public Result<Homework> getByIdForStudent(@PathVariable Integer id) {
-        Homework homework = homeworkMapper.findById(id);
+        Homework homework = homeworkMapper.selectById(id);
         if (homework == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
@@ -272,15 +272,11 @@ public class HomeworkController {
     public Result<Submission> getSubmissionStatus(
             @PathVariable Integer homeworkId,
             @RequestHeader("Authorization") String authHeader) {
-        Integer studentId = currentUserId(authHeader);
+        Integer studentId = jwtUtils.getUserIdFromHeader(authHeader);
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
         Submission submission = submissionMapper.findByHomeworkIdAndStudentId(homeworkId, studentId);
         return Result.success(submission);
-    }
-
-    private Integer currentUserId(String authHeader) {
-        return jwtUtils.getUserIdFromHeader(authHeader);
     }
 }

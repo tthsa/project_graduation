@@ -1,17 +1,38 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+// 401 未授权处理函数（由 main.ts 注入，避免循环依赖）
+let unauthorizedHandler = () => {
+  localStorage.removeItem('token')
+  window.location.replace('/login')
+}
+
+export function setUnauthorizedHandler(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
 })
 
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem('token')
+    // 兼容两种存储：独立 token 键（旧）或 Pinia persistedstate 的 user 键（新）
+    let token = localStorage.getItem('token')
+    if (!token) {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr)
+          token = user.token || null
+        } catch {
+          token = null
+        }
+      }
+    }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -27,7 +48,6 @@ request.interceptors.response.use(
   (response) => {
     const res = response.data
 
-    // 后端返回的状态码
     if (res.code === 200) {
       return res.data
     } else {
@@ -36,14 +56,11 @@ request.interceptors.response.use(
     }
   },
   (error) => {
-    // HTTP 错误处理
     if (error.response) {
       switch (error.response.status) {
         case 401:
           ElMessage.error('未登录或登录已过期')
-          // 跳转到登录页
-          localStorage.removeItem('token')
-          window.location.href = '/login'
+          unauthorizedHandler()
           break
         case 403:
           ElMessage.error('没有权限')

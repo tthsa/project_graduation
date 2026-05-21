@@ -13,51 +13,39 @@
     <el-row :gutter="20" style="margin-top: 20px">
       <!-- 统计卡片 -->
       <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #409eff">
-            <el-icon size="24"><Reading /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.courseCount }}</div>
-            <div class="stat-label">我的课程</div>
-          </div>
-        </el-card>
+        <StatCard
+          :icon="Reading"
+          :value="stats.courseCount"
+          label="我的课程"
+          color="#409eff"
+        />
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #67c23a">
-            <el-icon size="24"><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.homeworkCount }}</div>
-            <div class="stat-label">我的作业</div>
-          </div>
-        </el-card>
+        <StatCard
+          :icon="Document"
+          :value="stats.homeworkCount"
+          label="我的作业"
+          color="#67c23a"
+        />
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #e6a23c">
-            <el-icon size="24"><Edit /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.pendingCount }}</div>
-            <div class="stat-label">待评测提交</div>
-          </div>
-        </el-card>
+        <StatCard
+          :icon="Edit"
+          :value="stats.pendingCount"
+          label="待评测提交"
+          color="#e6a23c"
+        />
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon" style="background-color: #f56c6c">
-            <el-icon size="24"><CircleCheck /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.completedCount }}</div>
-            <div class="stat-label">已完成评测</div>
-          </div>
-        </el-card>
+        <StatCard
+          :icon="CircleCheck"
+          :value="stats.completedCount"
+          label="已完成评测"
+          color="#f56c6c"
+        />
       </el-col>
     </el-row>
 
@@ -114,6 +102,7 @@ import { useUserStore } from '@/stores/user'
 import { getHomeworkList, type Homework } from '@/api/homework'
 import { getTeacherStatsOverview, type TeacherStatsOverview } from '@/api/teacher-stats'
 import { formatTime } from '@/utils/format'
+import StatCard from '@/components/StatCard.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -184,42 +173,6 @@ onMounted(() => {
 .welcome-card p {
   margin: 0;
   opacity: 0.9;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-}
-
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.stat-info {
-  margin-left: 15px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #303133;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
 }
 
 .quick-actions {

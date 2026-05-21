@@ -108,7 +108,7 @@ const routes = [
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    component: () => import('@/views/LoginView.vue'),
+    component: () => import('@/views/NotFoundView.vue'),
   },
 ]
 

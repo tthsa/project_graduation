@@ -42,7 +42,7 @@ public class ReportController {
      */
     @GetMapping("/detail/{submissionId}")
     public Result<Submission> getDetail(@PathVariable Integer submissionId) {
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }

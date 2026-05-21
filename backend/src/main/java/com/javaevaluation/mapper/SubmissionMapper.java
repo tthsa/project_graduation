@@ -1,5 +1,6 @@
 package com.javaevaluation.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.javaevaluation.entity.Submission;
 import org.apache.ibatis.annotations.*;
 
@@ -9,33 +10,13 @@ import java.util.List;
  * 提交记录Mapper接口
  */
 @Mapper
-public interface SubmissionMapper {
-
-    /**
-     * 插入提交记录
-     */
-    @Insert("INSERT INTO submission (homework_id, student_id, submit_time, status) " +
-            "VALUES (#{homeworkId}, #{studentId}, #{submitTime}, #{status})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(Submission submission);
-
-    /**
-     * 更新提交记录
-     */
-    @Update("UPDATE submission SET submit_time = #{submitTime}, status = #{status} WHERE id = #{id}")
-    int update(Submission submission);
+public interface SubmissionMapper extends BaseMapper<Submission> {
 
     /**
      * 仅更新状态(不动 submit_time)
      */
     @Update("UPDATE submission SET status = #{status} WHERE id = #{id}")
     int updateStatus(@Param("id") Integer id, @Param("status") Integer status);
-
-    /**
-     * 根据ID查询提交记录
-     */
-    @Select("SELECT * FROM submission WHERE id = #{id}")
-    Submission findById(@Param("id") Integer id);
 
     /**
      * 根据作业ID和学生ID查询提交记录

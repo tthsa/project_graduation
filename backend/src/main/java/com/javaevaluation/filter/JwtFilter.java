@@ -1,5 +1,7 @@
-package com.javaevaluation.security;
+package com.javaevaluation.filter;
 
+import com.javaevaluation.service.impl.UserDetailsServiceImpl;
+import com.javaevaluation.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,12 +33,15 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            System.out.println("[JWT-DEBUG] Token extracted: " + (jwt != null ? jwt.substring(0, Math.min(20, jwt.length())) + "..." : "null"));
 
             if (StringUtils.hasText(jwt) && jwtUtils.validateToken(jwt)) {
                 String username = jwtUtils.getUsernameFromToken(jwt);
+                System.out.println("[JWT-DEBUG] Token valid, username=" + username);
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    System.out.println("[JWT-DEBUG] UserDetails loaded, authorities=" + userDetails.getAuthorities());
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
@@ -47,10 +52,14 @@ public class JwtFilter extends OncePerRequestFilter {
 
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    System.out.println("[JWT-DEBUG] Authentication set successfully");
                 }
+            } else {
+                System.out.println("[JWT-DEBUG] Token invalid or empty");
             }
         } catch (Exception e) {
-            logger.error("无法设置用户认证", e);
+            System.out.println("[JWT-DEBUG] Exception: " + e.getMessage());
+            e.printStackTrace();
         }
 
         filterChain.doFilter(request, response);

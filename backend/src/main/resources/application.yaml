@@ -9,7 +9,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:localhost}:${SPRING_DATASOURCE_PORT:5432}/${SPRING_DATASOURCE_DB:java_evaluation}
     username: ${SPRING_DATASOURCE_USERNAME:admin}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin123456}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -19,7 +19,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: false
 
   # Redis 配置
@@ -60,7 +60,7 @@ spring:
 
 # SiliconFlow API 配置
 siliconflow:
-  api-key: ${SILICONFLOW_API_KEY}
+  api-key: ${SILICONFLOW_API_KEY:sk-placeholder}
   base-url: "https://api.siliconflow.cn"
   model: "deepseek-ai/DeepSeek-V3.2"
   timeout: 60000
@@ -73,7 +73,7 @@ docker:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:r/sImbeJ2GEGIPKooCqhmc5bwOmkknspxXQW0aOr6gfwDA8D72bsHV8QljqlIUQf}
   expiration: 86400000
 
 # 日志配置

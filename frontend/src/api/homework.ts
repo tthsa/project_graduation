@@ -12,7 +12,27 @@ export interface TestCase {
   createdAt: string
 }
 
-// 作业信息类型
+// 作业基础字段（创建和更新共用）
+interface HomeworkBaseParams {
+  courseId: number
+  title: string
+  description: string
+  deadline: string
+  status: number
+  testWeight?: number | null
+  llmWeight?: number | null
+  gradeAThreshold?: number | null
+  gradeBThreshold?: number | null
+  gradeCThreshold?: number | null
+  llmDimensions?: string | null
+}
+
+// 添加作业参数
+export type AddHomeworkParams = HomeworkBaseParams
+
+// 更新作业参数
+export type UpdateHomeworkParams = HomeworkBaseParams & { id: number }
+
 export interface Homework {
   id: number
   courseId: number
@@ -22,105 +42,13 @@ export interface Homework {
   status: number
   createdAt: string
   updatedAt: string
-  // 评分配置
   testWeight: number | null
   llmWeight: number | null
   gradeAThreshold: number | null
   gradeBThreshold: number | null
   gradeCThreshold: number | null
-  llmDimensions: string | null // JSON 字符串, 阶段 3 接维度时使用
+  llmDimensions: string | null
 }
-
-// 添加作业参数
-export interface AddHomeworkParams {
-  courseId: number
-  title: string
-  description: string
-  deadline: string
-  status: number
-  testWeight?: number | null
-  llmWeight?: number | null
-  gradeAThreshold?: number | null
-  gradeBThreshold?: number | null
-  gradeCThreshold?: number | null
-  llmDimensions?: string | null
-}
-
-// 更新作业参数
-export interface UpdateHomeworkParams {
-  id: number
-  courseId: number
-  title: string
-  description: string
-  deadline: string
-  status: number
-  testWeight?: number | null
-  llmWeight?: number | null
-  gradeAThreshold?: number | null
-  gradeBThreshold?: number | null
-  gradeCThreshold?: number | null
-  llmDimensions?: string | null
-}
-
-// ==================== 教师接口 ====================
-
-// 获取作业列表（教师）
-export function getHomeworkList(): Promise<Homework[]> {
-  return request.get('/teacher/homework/list')
-}
-
-// 获取作业详情（教师）
-export function getHomeworkDetail(id: number): Promise<Homework> {
-  return request.get(`/teacher/homework/${id}`)
-}
-
-// 创建作业
-export function createHomework(data: AddHomeworkParams): Promise<Homework> {
-  const now = new Date().toISOString().replace('Z', '')
-  const payload = {
-    courseId: data.courseId,
-    title: data.title,
-    description: data.description,
-    deadline: data.deadline ? data.deadline.replace(' ', 'T') : null,
-    status: data.status,
-    createdAt: now,
-    testWeight: data.testWeight ?? null,
-    llmWeight: data.llmWeight ?? null,
-    gradeAThreshold: data.gradeAThreshold ?? null,
-    gradeBThreshold: data.gradeBThreshold ?? null,
-    gradeCThreshold: data.gradeCThreshold ?? null,
-    llmDimensions: data.llmDimensions ?? null,
-  }
-  return request.post('/teacher/homework/create', payload)
-}
-
-// 更新作业
-export function updateHomework(data: UpdateHomeworkParams): Promise<Homework> {
-  const now = new Date().toISOString().replace('Z', '')
-  const payload = {
-    id: data.id,
-    courseId: data.courseId,
-    title: data.title,
-    description: data.description,
-    deadline: data.deadline ? data.deadline.replace(' ', 'T') : null,
-    status: data.status,
-    updatedAt: now,
-    testWeight: data.testWeight ?? null,
-    llmWeight: data.llmWeight ?? null,
-    gradeAThreshold: data.gradeAThreshold ?? null,
-    gradeBThreshold: data.gradeBThreshold ?? null,
-    gradeCThreshold: data.gradeCThreshold ?? null,
-    llmDimensions: data.llmDimensions ?? null,
-  }
-  return request.put(`/teacher/homework/${data.id}`, payload)
-}
-
-// 删除作业
-export function deleteHomework(id: number): Promise<void> {
-  return request.delete(`/teacher/homework/${id}`)
-}
-
-// ==================== 学生接口 ====================
 
 // 作业带状态类型
 export interface HomeworkWithStatus {
@@ -132,17 +60,38 @@ export interface HomeworkWithStatus {
   expired: boolean
 }
 
-// 获取作业列表（学生，带提交状态）
+// ==================== 教师接口 ====================
+
+export function getHomeworkList(): Promise<Homework[]> {
+  return request.get('/teacher/homework/list')
+}
+
+export function getHomeworkDetail(id: number): Promise<Homework> {
+  return request.get(`/teacher/homework/${id}`)
+}
+
+export function createHomework(data: AddHomeworkParams): Promise<Homework> {
+  return request.post('/teacher/homework/create', data)
+}
+
+export function updateHomework(data: UpdateHomeworkParams): Promise<Homework> {
+  return request.put(`/teacher/homework/${data.id}`, data)
+}
+
+export function deleteHomework(id: number): Promise<void> {
+  return request.delete(`/teacher/homework/${id}`)
+}
+
+// ==================== 学生接口 ====================
+
 export function getHomeworkListForStudent(): Promise<HomeworkWithStatus[]> {
   return request.get('/student/homework/list')
 }
 
-// 获取作业详情（学生）
 export function getHomeworkDetailForStudent(id: number): Promise<Homework> {
   return request.get(`/student/homework/${id}`)
 }
 
-// 获取公开测试用例
 export function getPublicTestCases(homeworkId: number): Promise<TestCase[]> {
   return request.get(`/student/homework/${homeworkId}/testcases`)
 }

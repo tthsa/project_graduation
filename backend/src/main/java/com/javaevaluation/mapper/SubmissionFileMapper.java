@@ -1,5 +1,6 @@
 package com.javaevaluation.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.javaevaluation.entity.SubmissionFile;
 import org.apache.ibatis.annotations.*;
 
@@ -9,27 +10,13 @@ import java.util.List;
  * 提交文件Mapper接口
  */
 @Mapper
-public interface SubmissionFileMapper {
-
-    /**
-     * 插入文件记录
-     */
-    @Insert("INSERT INTO submission_file (submission_id, file_name, file_content, file_order) " +
-            "VALUES (#{submissionId}, #{fileName}, #{fileContent}, #{fileOrder})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(SubmissionFile file);
+public interface SubmissionFileMapper extends BaseMapper<SubmissionFile> {
 
     /**
      * 根据提交ID查询文件列表
      */
     @Select("SELECT * FROM submission_file WHERE submission_id = #{submissionId} ORDER BY file_order")
     List<SubmissionFile> findBySubmissionId(@Param("submissionId") Integer submissionId);
-
-    /**
-     * 根据ID查询文件
-     */
-    @Select("SELECT * FROM submission_file WHERE id = #{id}")
-    SubmissionFile findById(@Param("id") Integer id);
 
     /**
      * 删除提交的所有文件

@@ -6,7 +6,7 @@ import com.javaevaluation.entity.EvaluationResult;
 import com.javaevaluation.entity.Submission;
 import com.javaevaluation.entity.SubmissionFile;
 import com.javaevaluation.mapper.SubmissionMapper;
-import com.javaevaluation.security.JwtUtils;
+import com.javaevaluation.utils.JwtUtils;
 import com.javaevaluation.service.CodeSubmitService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -88,7 +88,7 @@ public class SubmissionController {
         if (studentId == null) {
             return Result.fail(ErrorCode.TOKEN_INVALID);
         }
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             return Result.fail(ErrorCode.NOT_FOUND);
         }
@@ -151,7 +151,7 @@ public class SubmissionController {
         if (userId == null) {
             return false;
         }
-        Submission submission = submissionMapper.findById(submissionId);
+        Submission submission = submissionMapper.selectById(submissionId);
         return submission != null && userId.equals(submission.getStudentId());
     }
 }

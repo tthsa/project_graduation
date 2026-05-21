@@ -1,12 +1,14 @@
 package com.javaevaluation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
-import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
 
 @Data
-public class Student {
-    private Integer id;
+@EqualsAndHashCode(callSuper = true)
+@TableName("student")
+public class Student extends BaseEntity {
     private String studentNo;
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
@@ -15,6 +17,4 @@ public class Student {
     private Integer classId;
     private Integer status;
     private Integer firstLogin;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

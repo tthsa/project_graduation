@@ -1,29 +1,16 @@
 package com.javaevaluation.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.javaevaluation.entity.Teacher;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
 @Mapper
-public interface TeacherMapper {
-
-    @Select("SELECT * FROM teacher WHERE id = #{id}")
-    Teacher findById(Integer id);
+public interface TeacherMapper extends BaseMapper<Teacher> {
 
     @Select("SELECT * FROM teacher WHERE teacher_no = #{teacherNo}")
     Teacher findByTeacherNo(String teacherNo);
-
-    @Select("SELECT * FROM teacher")
-    List<Teacher> findAll();
-
-    @Select("SELECT COUNT(*) FROM teacher")
-    int count();
-
-    @Insert("INSERT INTO teacher (teacher_no, password, name, email, phone, status, create_time) " +
-            "VALUES (#{teacherNo}, #{password}, #{name}, #{email}, #{phone}, #{status}, #{createdAt})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(Teacher teacher);
 
     @Update("UPDATE teacher SET name = #{name}, email = #{email}, phone = #{phone}, " +
             "status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}")
@@ -31,7 +18,4 @@ public interface TeacherMapper {
 
     @Update("UPDATE teacher SET password = #{password} WHERE id = #{id}")
     int updatePassword(@Param("id") Integer id, @Param("password") String password);
-
-    @Delete("DELETE FROM teacher WHERE id = #{id}")
-    int delete(Integer id);
 }
